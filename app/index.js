@@ -4,6 +4,7 @@ import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import BottomNavigation from "./components/BottomNavigation";
+import DangerAreaCard from "./components/DangerAreaCard";
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -151,6 +152,10 @@ export default function Page() {
         ) : null}
       </MapView>
 
+      <View style={styles.dangerCard}>
+        <DangerAreaCard />
+      </View>
+
       <View style={styles.navigation}>
         <BottomNavigation />
       </View>
@@ -173,6 +178,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1,
     elevation: 1,
+  },
+  dangerCard: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    bottom: 100,
+    zIndex: 2,
+    elevation: 2,
   },
   locationMarker: {
     width: 42,
