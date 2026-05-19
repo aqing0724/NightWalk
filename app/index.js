@@ -5,6 +5,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 
 import BottomNavigation from "./components/BottomNavigation";
 import DangerAreaCard from "./components/DangerAreaCard";
+import DangerAreaSheet from "./components/DangerAreaSheet";
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -27,6 +28,7 @@ export default function Page() {
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  const [dangerSheetVisible, setDangerSheetVisible] = useState(false);
 
   useEffect(() => {
     let subscription;
@@ -153,12 +155,17 @@ export default function Page() {
       </MapView>
 
       <View style={styles.dangerCard}>
-        <DangerAreaCard />
+        <DangerAreaCard onPress={() => setDangerSheetVisible(true)} />
       </View>
 
       <View style={styles.navigation}>
         <BottomNavigation />
       </View>
+
+      <DangerAreaSheet
+        visible={dangerSheetVisible}
+        onClose={() => setDangerSheetVisible(false)}
+      />
     </View>
   );
 }
