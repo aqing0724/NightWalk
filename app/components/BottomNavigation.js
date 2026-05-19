@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, View } from "react-native";
 
-const homeIcon = require("../../assets/Home.png");
-const userIcon = require("../../assets/User.png");
+const homeIcon = require("../../assets/Home-black.png");
+const userIcon = require("../../assets/User-black.png");
 
 export default function BottomNavigation() {
   return (
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     height: 75,
     paddingHorizontal: 52,
     paddingTop: 20,
-    backgroundColor: "#3b3b3b",
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     flexDirection: "row",
