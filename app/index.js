@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { router } from "expo-router"; //黃
 
 import BottomNavigation from "./components/BottomNavigation";
 import DangerAreaCard from "./components/DangerAreaCard";
@@ -161,6 +162,11 @@ export default function Page() {
       <View style={styles.navigation}>
         <BottomNavigation />
       </View>
+
+      <View style={styles.navigation}>
+        <BottomNavigation onPressProfile={() => router.push("/profile")} />
+      </View> 
+        {/* 黃 */}
 
       <DangerAreaSheet
         visible={dangerSheetVisible}
