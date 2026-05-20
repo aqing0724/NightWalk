@@ -78,11 +78,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#9cad9f",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 5,
-    elevation: 8,
   },
   addVertical: {
     position: "absolute",
