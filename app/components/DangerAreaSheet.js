@@ -1,4 +1,5 @@
 import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const redDangerIcon = require("../../assets/redDanger.png");
@@ -6,10 +7,17 @@ const faceIcon = require("../../assets/Face.png");
 const thumbsUpIcon = require("../../assets/ThumbsUp.png");
 const thumbsDownIcon = require("../../assets/ThumbsDown.png");
 const mapPinIcon = require("../../assets/MapPin.png");
-const clockIcon = require("../../assets/Clock.png");
 
 export default function DangerAreaSheet({ visible, onClose }) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  function handleViewFullEvent() {
+    onClose?.();
+    requestAnimationFrame(() => {
+      router.push("/detail");
+    });
+  }
 
   return (
     <Modal
@@ -83,9 +91,10 @@ export default function DangerAreaSheet({ visible, onClose }) {
           <Pressable
             accessibilityLabel="View full incident"
             accessibilityRole="button"
+            onPress={handleViewFullEvent}
             style={styles.fullEventButton}
           >
-            <Text style={styles.fullEventText}>查看完整事件</Text>
+            <Text style={styles.fullEventText}>點擊查看完整事件</Text>
           </Pressable>
         </View>
       </View>

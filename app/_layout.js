@@ -1,4 +1,4 @@
-import { Slot } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar, StyleSheet, View } from "react-native";
 import {
   SafeAreaProvider,
@@ -14,7 +14,7 @@ export default function RootLayout() {
         backgroundColor="transparent"
       />
       <View style={styles.screen}>
-        <Slot />
+        <Stack screenOptions={{ headerShown: false }} />
       </View>
     </SafeAreaProvider>
   );
@@ -23,7 +23,6 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#000000",
-    paddingBottom: 20,
+    backgroundColor: "#F6F6F6",
   },
 });

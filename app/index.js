@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BottomNavigation from "./components/BottomNavigation";
 import DangerAreaCard from "./components/DangerAreaCard";
@@ -25,6 +26,7 @@ const locationOptions = {
 };
 
 export default function Page() {
+  const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
@@ -154,11 +156,21 @@ export default function Page() {
         ) : null}
       </MapView>
 
-      <View style={styles.dangerCard}>
+      <View
+        style={[
+          styles.dangerCard,
+          { bottom: Math.max(insets.bottom, 26) + 100 },
+        ]}
+      >
         <DangerAreaCard onPress={() => setDangerSheetVisible(true)} />
       </View>
 
-      <View style={styles.navigation}>
+      <View
+        style={[
+          styles.navigation,
+          { paddingBottom: Math.max(insets.bottom, 26) },
+        ]}
+      >
         <BottomNavigation />
       </View>
 
@@ -183,6 +195,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: "#FFFFFF",
     zIndex: 1,
     elevation: 1,
   },
@@ -190,7 +203,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     right: 20,
-    bottom: 100,
     zIndex: 2,
     elevation: 2,
   },
