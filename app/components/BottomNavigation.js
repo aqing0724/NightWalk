@@ -1,15 +1,28 @@
 import { Image, Pressable, StyleSheet, View } from "react-native";
+import { usePathname, useRouter } from "expo-router";
 
 const homeIcon = require("../../assets/Home-black.png");
 const userIcon = require("../../assets/User-black.png");
 
-export default function BottomNavigation() {
+export default function BottomNavigation({ activeRoute = "home" }) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  function navigateIfNeeded(nextPath) {
+    if (pathname === nextPath) {
+      return;
+    }
+
+    router.push(nextPath);
+  }
+
   return (
     <View style={styles.navWrap}>
       <View style={styles.navBar}>
         <Pressable
           accessibilityLabel="Home"
           accessibilityRole="button"
+          onPress={() => navigateIfNeeded("/")}
           style={styles.navItem}
         >
           <Image source={homeIcon} style={styles.navIcon} />
@@ -29,7 +42,11 @@ export default function BottomNavigation() {
       <Pressable
         accessibilityLabel="Add"
         accessibilityRole="button"
-        style={styles.addButton}
+        onPress={() => navigateIfNeeded("/Add")}
+        style={[
+          styles.addButton,
+          activeRoute === "add" ? styles.addButtonActive : null,
+        ]}
       >
         <View style={styles.addVertical} />
         <View style={styles.addHorizontal} />
@@ -78,6 +95,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#9cad9f",
     alignItems: "center",
     justifyContent: "center",
+  },
+  addButtonActive: {
+    backgroundColor: "#AFC2B5",
   },
   addVertical: {
     position: "absolute",
