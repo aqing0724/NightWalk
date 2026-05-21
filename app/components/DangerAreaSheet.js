@@ -36,17 +36,12 @@ export default function DangerAreaSheet({ visible, onClose }) {
             <Text style={styles.title}>高危險區域</Text>
           </View>
 
-          <View style={styles.metaRow}>
+          
             <View style={styles.metaItem}>
               <Image source={mapPinIcon} style={styles.metaIcon} />
               <Text style={styles.metaText}>近捷運科技大樓站</Text>
             </View>
-
-            <View style={styles.metaItem}>
-              <Image source={clockIcon} style={styles.metaIcon} />
-              <Text style={styles.metaText}>2小時前</Text>
-            </View>
-          </View>
+          
 
           <View style={styles.divider} />
 
@@ -82,6 +77,16 @@ export default function DangerAreaSheet({ visible, onClose }) {
               <Text style={styles.voteText}>不可信(10)</Text>
             </Pressable>
           </View>
+
+          <View style={styles.divider} />
+
+          <Pressable
+            accessibilityLabel="View full incident"
+            accessibilityRole="button"
+            style={styles.fullEventButton}
+          >
+            <Text style={styles.fullEventText}>查看完整事件</Text>
+          </Pressable>
         </View>
       </View>
     </Modal>
@@ -129,11 +134,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     lineHeight: 28,
   },
-  metaRow: {
-    marginTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
+
   metaItem: {
     marginRight: 22,
     flexDirection: "row",
@@ -225,5 +226,18 @@ const styles = StyleSheet.create({
     width: 21,
     height: 21,
     resizeMode: "contain",
+  },
+  fullEventButton: {
+    height: 40,
+    marginTop: 16,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fullEventText: {
+    color: "#AFC2B5",
+    fontSize: 15,
+    fontWeight: "900",
   },
 });

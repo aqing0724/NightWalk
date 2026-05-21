@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   cardPressed: {
-    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
   warningIcon: {
     width: 48,
