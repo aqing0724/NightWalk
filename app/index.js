@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DangerAreaCard from "./components/DangerAreaCard";
@@ -28,7 +28,6 @@ export default function Page() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
-  const [userLocation, setUserLocation] = useState(null);
   const [dangerSheetVisible, setDangerSheetVisible] = useState(false);
 
   useEffect(() => {
@@ -49,8 +48,6 @@ export default function Page() {
             ? location.coords.heading
             : 0,
       };
-
-      setUserLocation(nextUserLocation);
 
       mapRef.current.animateCamera(
         {
@@ -127,6 +124,7 @@ export default function Page() {
           center: fallbackCenter,
           ...cameraSettings,
         }}
+        showsUserLocation
         showsMyLocationButton={false}
         showsBuildings={false}
         showsIndoorLevelPicker={false}
@@ -135,25 +133,7 @@ export default function Page() {
         rotateEnabled
         pitchEnabled
         onMapReady={() => setMapReady(true)}
-      >
-        {userLocation ? (
-          <Marker
-            anchor={{ x: 0.5, y: 0.5 }}
-            coordinate={{
-              latitude: userLocation.latitude,
-              longitude: userLocation.longitude,
-            }}
-            flat
-            rotation={userLocation.heading}
-          >
-            <View style={styles.locationMarker}>
-              <View style={styles.locationArrowWrap}>
-                <View style={styles.locationArrow} />
-              </View>
-            </View>
-          </Marker>
-        ) : null}
-      </MapView>
+      />
 
       <View
         style={[
@@ -186,34 +166,5 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 2,
     elevation: 2,
-  },
-  locationMarker: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "rgba(255, 255, 255, 0.82)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  locationArrowWrap: {
-    width: 30,
-    height: 30,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  locationArrow: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderBottomWidth: 26,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "#1a73e8",
   },
 });
