@@ -14,13 +14,11 @@ export default {
     name: "nightwalk",
     slug: "nightwalk",
     ios: {
-      bundleIdentifier: "com.nightwalk.app",
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,
       },
     },
     android: {
-      package: "com.nightwalk.app",
       config: {
         googleMaps: {
           apiKey: process.env.GOOGLE_MAPS_API_KEY,

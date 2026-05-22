@@ -1,9 +1,5 @@
-import { useEffect, useState } from "react";
-import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-
-import AuthModal from "./AuthModal";
-import useGoogleSignIn from "../hooks/useGoogleSignIn";
 
 const homeIcon = require("../../assets/Home-black.png");
 const userIcon = require("../../assets/User-black.png");
@@ -11,15 +7,6 @@ const userIcon = require("../../assets/User-black.png");
 export default function BottomNavigation({ activeRoute = "home" }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [authVisible, setAuthVisible] = useState(false);
-  const {
-    error,
-    isReady,
-    isSigningIn,
-    signInWithGoogle,
-    signOutFromGoogle,
-    user,
-  } = useGoogleSignIn();
 
   function navigateIfNeeded(nextPath) {
     if (pathname === nextPath) {
@@ -29,84 +16,42 @@ export default function BottomNavigation({ activeRoute = "home" }) {
     router.push(nextPath);
   }
 
-  async function handleProfilePress() {
-    if (user) {
-      Alert.alert(
-        "已登入",
-        user.displayName || user.email || "Google 帳號已登入",
-        [
-          { text: "取消", style: "cancel" },
-          {
-            text: "登出",
-            style: "destructive",
-            onPress: signOutFromGoogle,
-          },
-        ]
-      );
-      return;
-    }
-
-    setAuthVisible(true);
-  }
-
-  useEffect(() => {
-    if (user) {
-      setAuthVisible(false);
-    }
-  }, [user]);
-
   return (
-    <>
-      <View style={styles.navWrap}>
-        <View style={styles.navBar}>
-          <Pressable
-            accessibilityLabel="Home"
-            accessibilityRole="button"
-            onPress={() => navigateIfNeeded("/")}
-            style={styles.navItem}
-          >
-            <Image source={homeIcon} style={styles.navIcon} />
-          </Pressable>
+    <View style={styles.navWrap}>
+      <View style={styles.navBar}>
+        <Pressable
+          accessibilityLabel="Home"
+          accessibilityRole="button"
+          onPress={() => navigateIfNeeded("/")}
+          style={styles.navItem}
+        >
+          <Image source={homeIcon} style={styles.navIcon} />
+        </Pressable>
 
-          <View style={styles.centerSlot} />
-
-          <Pressable
-            accessibilityLabel="Profile"
-            accessibilityRole="button"
-            disabled={isSigningIn}
-            onPress={handleProfilePress}
-            style={styles.navItem}
-          >
-            <Image
-              source={userIcon}
-              style={[styles.navIcon, user ? styles.navIconActive : null]}
-            />
-          </Pressable>
-        </View>
+        <View style={styles.centerSlot} />
 
         <Pressable
-          accessibilityLabel="Add"
+          accessibilityLabel="Profile"
           accessibilityRole="button"
-          onPress={() => navigateIfNeeded("/Add")}
-          style={[
-            styles.addButton,
-            activeRoute === "add" ? styles.addButtonActive : null,
-          ]}
+          style={styles.navItem}
         >
-          <View style={styles.addVertical} />
-          <View style={styles.addHorizontal} />
+          <Image source={userIcon} style={styles.navIcon} />
         </Pressable>
       </View>
 
-      <AuthModal
-        googleError={error}
-        isGoogleReady={isReady}
-        isGoogleSigningIn={isSigningIn}
-        onClose={() => setAuthVisible(false)}
-        onGoogleSignIn={signInWithGoogle}
-        visible={authVisible}
-      />
-    </>
+      <Pressable
+        accessibilityLabel="Add"
+        accessibilityRole="button"
+        onPress={() => navigateIfNeeded("/Add")}
+        style={[
+          styles.addButton,
+          activeRoute === "add" ? styles.addButtonActive : null,
+        ]}
+      >
+        <View style={styles.addVertical} />
+        <View style={styles.addHorizontal} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -140,9 +85,6 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     resizeMode: "contain",
-  },
-  navIconActive: {
-    tintColor: "#AFC2B5",
   },
   addButton: {
     position: "absolute",
