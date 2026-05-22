@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StatusBar,
@@ -9,6 +10,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+const mailIcon = require("../assets/mail.png");
 
 const modes = {
   login: {
@@ -164,12 +167,7 @@ function FormField({ icon, label, placeholder, ...inputProps }) {
 
 function FieldIcon({ type }) {
   if (type === "mail") {
-    return (
-      <View style={styles.mailIcon}>
-        <View style={styles.mailFoldLeft} />
-        <View style={styles.mailFoldRight} />
-      </View>
-    );
+    return <Image source={mailIcon} style={styles.mailIcon} />;
   }
 
   if (type === "user") {
@@ -284,31 +282,8 @@ const styles = StyleSheet.create({
   },
   mailIcon: {
     width: 30,
-    height: 24,
-    borderWidth: 4,
-    borderColor: "#B9B9B9",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  mailFoldLeft: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 4,
-    borderBottomColor: "#B9B9B9",
-    transform: [{ rotate: "31deg" }],
-  },
-  mailFoldRight: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 4,
-    borderBottomColor: "#B9B9B9",
-    transform: [{ rotate: "-31deg" }],
+    height: 30,
+    resizeMode: "contain",
   },
   lockIcon: {
     width: 30,
