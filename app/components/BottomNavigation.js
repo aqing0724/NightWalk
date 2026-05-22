@@ -33,6 +33,7 @@ export default function BottomNavigation({ activeRoute = "home" }) {
         <Pressable
           accessibilityLabel="Profile"
           accessibilityRole="button"
+          onPress={() => navigateIfNeeded("/Account")}
           style={styles.navItem}
         >
           <Image source={userIcon} style={styles.navIcon} />
