@@ -1,7 +1,20 @@
 import { useState } from "react";
-import { Image, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { auth, db } from "../firebase";
 
 const theftIcon = require("../assets/Theft.png");
 const harassIcon = require("../assets/Harass.png");
@@ -27,6 +40,62 @@ const dangerLevels = ["需注意", "需小心", "極度危險"];
 export default function AddPage() {
   const insets = useSafeAreaInsets();
   const [selectedLocation, setSelectedLocation] = useState(reportLocation);
+  const [locationText, setLocationText] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState([]);
+  const [dangerLevel, setDangerLevel] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  function toggleDangerType(typeId) {
+    setSelectedTypes((currentTypes) =>
+      currentTypes.includes(typeId)
+        ? currentTypes.filter((id) => id !== typeId)
+        : [...currentTypes, typeId]
+    );
+  }
+
+  async function handleSubmitReport() {
+    if (isSubmitting) {
+      return;
+    }
+
+    if (
+      !locationText.trim() ||
+      !description.trim() ||
+      selectedTypes.length === 0 ||
+      !dangerLevel
+    ) {
+      Alert.alert("資料未完成", "請填寫位置、危險類型、危險程度與情況說明。");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await addDoc(collection(db, "reports"), {
+        locationText: locationText.trim(),
+        description: description.trim(),
+        types: selectedTypes,
+        dangerLevel,
+        latitude: selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+        credibleCount: 0,
+        notCredibleCount: 0,
+        userId: auth.currentUser?.uid ?? null,
+        createdAt: serverTimestamp(),
+      });
+
+      setLocationText("");
+      setDescription("");
+      setSelectedTypes([]);
+      setDangerLevel("");
+      Alert.alert("已送出", "謝謝你的回報。");
+    } catch (error) {
+      Alert.alert("送出失敗", "目前無法送出回報，請稍後再試。");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -86,6 +155,8 @@ export default function AddPage() {
           placeholderTextColor="#000000"
           style={styles.largeInput}
           textAlignVertical="top"
+          value={locationText}
+          onChangeText={setLocationText}
         />
 
         <Text style={styles.sectionTitle}>2.選擇危險類型(可複選)</Text>
@@ -95,7 +166,14 @@ export default function AddPage() {
               key={item.id}
               accessibilityLabel={item.label}
               accessibilityRole="checkbox"
-              style={styles.optionCard}
+              accessibilityState={{ checked: selectedTypes.includes(item.id) }}
+              onPress={() => toggleDangerType(item.id)}
+              style={[
+                styles.optionCard,
+                selectedTypes.includes(item.id)
+                  ? styles.optionCardSelected
+                  : null,
+              ]}
             >
               <Image source={item.icon} style={styles.dangerTypeIcon} />
               <Text style={styles.optionLabel}>{item.label}</Text>
@@ -111,7 +189,12 @@ export default function AddPage() {
               key={level}
               accessibilityLabel={level}
               accessibilityRole="radio"
-              style={styles.optionCard}
+              accessibilityState={{ checked: dangerLevel === level }}
+              onPress={() => setDangerLevel(level)}
+              style={[
+                styles.optionCard,
+                dangerLevel === level ? styles.optionCardSelected : null,
+              ]}
             >
               <Image source={faceIcon} style={styles.faceIcon} />
               <Text style={styles.optionLabel}>{level}</Text>
@@ -127,6 +210,8 @@ export default function AddPage() {
           placeholderTextColor="#000000"
           style={styles.largeInput}
           textAlignVertical="top"
+          value={description}
+          onChangeText={setDescription}
         />
 
         <Text style={styles.sectionTitle}>5.上傳照片 (選填)</Text>
@@ -143,9 +228,16 @@ export default function AddPage() {
         <Pressable
           accessibilityLabel="Submit report"
           accessibilityRole="button"
-          style={styles.submitButton}
+          disabled={isSubmitting}
+          onPress={handleSubmitReport}
+          style={[
+            styles.submitButton,
+            isSubmitting ? styles.submitButtonDisabled : null,
+          ]}
         >
-          <Text style={styles.submitButtonText}>送出回報</Text>
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? "送出中..." : "送出回報"}
+          </Text>
         </Pressable>
       </ScrollView>
 
@@ -218,10 +310,16 @@ const styles = StyleSheet.create({
   optionCard: {
     width: "31%",
     height: 89,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
+  },
+  optionCardSelected: {
+    borderColor: "#AFC2B5",
+    backgroundColor: "#F4F8F5",
   },
   dangerTypeIcon: {
     width: 34,
@@ -284,6 +382,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#AFC2B5",
     alignItems: "center",
     justifyContent: "center",
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
   },
   submitButtonText: {
     color: "#FFFFFF",

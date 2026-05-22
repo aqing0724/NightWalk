@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -8,8 +10,18 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  addDoc,
+  collection,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+} from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { auth, db } from "../firebase";
 
 const redDangerIcon = require("../assets/redDanger.png");
 const mapPinIcon = require("../assets/MapPin.png");
@@ -19,27 +31,79 @@ const accountIcon = require("../assets/account_circle.png");
 const sendIcon = require("../assets/Send-2.png");
 const chevronIcon = require("../assets/Chevron right.png");
 
-const comments = [
-  {
-    id: "1",
-    name: "小蛋糕",
-    message: "剛有經過還在那邊，先報警了",
-  },
-  {
-    id: "2",
-    name: "小餅乾",
-    message: "那附近真的超暗TT",
-  },
-  {
-    id: "3",
-    name: "小餅乾",
-    message: "喜吧！",
-  },
-];
-
 export default function DetailPage() {
   const router = useRouter();
+  const { reportId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const [comments, setComments] = useState([]);
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const currentReportId = Array.isArray(reportId) ? reportId[0] : reportId;
+
+  useEffect(() => {
+    if (!currentReportId) {
+      setComments([]);
+      return undefined;
+    }
+
+    const commentsQuery = query(
+      collection(db, "reports", currentReportId, "comments"),
+      orderBy("createdAt", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      commentsQuery,
+      (snapshot) => {
+        setComments(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+        );
+      },
+      () => {
+        Alert.alert("讀取失敗", "目前無法讀取留言，請稍後再試。");
+      }
+    );
+
+    return unsubscribe;
+  }, [currentReportId]);
+
+  async function handleSendComment() {
+    if (isSending) {
+      return;
+    }
+
+    const nextMessage = message.trim();
+
+    if (!currentReportId) {
+      Alert.alert("無法留言", "缺少回報資料，請從回報列表重新進入。");
+      return;
+    }
+
+    if (!nextMessage) {
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      const user = auth.currentUser;
+
+      await addDoc(collection(db, "reports", currentReportId, "comments"), {
+        message: nextMessage,
+        userId: user?.uid ?? null,
+        userName: user?.displayName ?? user?.email ?? "匿名使用者",
+        createdAt: serverTimestamp(),
+      });
+
+      setMessage("");
+    } catch (error) {
+      Alert.alert("送出失敗", "目前無法送出留言，請稍後再試。");
+    } finally {
+      setIsSending(false);
+    }
+  }
 
   return (
     <View style={styles.screen}>
@@ -131,7 +195,9 @@ export default function DetailPage() {
             <View key={comment.id} style={styles.commentCard}>
               <View style={styles.commentHeader}>
                 <Image source={accountIcon} style={styles.avatarIcon} />
-                <Text style={styles.commentName}>{comment.name}</Text>
+                <Text style={styles.commentName}>
+                  {comment.userName || "匿名使用者"}
+                </Text>
               </View>
               <Text style={styles.commentMessage}>{comment.message}</Text>
             </View>
@@ -153,12 +219,19 @@ export default function DetailPage() {
             placeholder="發表你的評論..."
             placeholderTextColor="#9A9A9A"
             style={styles.commentInput}
+            value={message}
+            onChangeText={setMessage}
           />
           <Pressable
             accessibilityLabel="Send comment"
             accessibilityRole="button"
             hitSlop={10}
-            style={styles.sendButton}
+            disabled={isSending}
+            onPress={handleSendComment}
+            style={[
+              styles.sendButton,
+              isSending ? styles.sendButtonDisabled : null,
+            ]}
           >
             <Image source={sendIcon} style={styles.sendIcon} />
           </Pressable>
@@ -422,6 +495,9 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: "flex-end",
     justifyContent: "center",
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   sendIcon: {
     width: 21,
