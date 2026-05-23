@@ -1,6 +1,19 @@
-import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { db } from "../../firebase";
+import { getCurrentVoterId, voteOnReport } from "../../services/reportVoting";
 
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
@@ -8,15 +21,80 @@ const thumbsUpIcon = require("../../assets/ThumbsUp.png");
 const thumbsDownIcon = require("../../assets/ThumbsDown.png");
 const mapPinIcon = require("../../assets/MapPin.png");
 
-export default function DangerAreaSheet({ visible, onClose }) {
+const typeLabels = {
+  theft: "偷竊",
+  harass: "騷擾",
+  track: "跟蹤",
+};
+
+export default function DangerAreaSheet({ visible, report, onClose }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [isVoting, setIsVoting] = useState(false);
+  const [selectedVote, setSelectedVote] = useState(null);
+  const credibleCount = report?.credibleCount ?? 0;
+  const notCredibleCount = report?.notCredibleCount ?? 0;
+  const voteCount = credibleCount + notCredibleCount;
+  const locationText =
+    report?.locationText || report?.selectedAddress || "危險回報位置";
+  const typeList = report?.types?.length ? report.types : [];
+
+  useEffect(() => {
+    setSelectedVote(null);
+  }, [report?.id]);
+
+  useEffect(() => {
+    if (!report?.id) {
+      setSelectedVote(null);
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "reports", report.id, "votes", getCurrentVoterId()),
+      (snapshot) => {
+        setSelectedVote(snapshot.exists() ? snapshot.data().vote : null);
+      }
+    );
+
+    return unsubscribe;
+  }, [report?.id]);
 
   function handleViewFullEvent() {
+    if (!report?.id) {
+      return;
+    }
+
     onClose?.();
     requestAnimationFrame(() => {
-      router.push("/detail");
+      router.push({
+        pathname: "/detail",
+        params: { reportId: report.id },
+      });
     });
+  }
+
+  async function handleVote(nextVote) {
+    if (!report?.id || isVoting) {
+      return;
+    }
+
+    setIsVoting(true);
+
+    try {
+      await voteOnReport(report.id, nextVote);
+      setSelectedVote((currentVote) =>
+        currentVote === nextVote ? null : nextVote
+      );
+    } catch (error) {
+      if (error.message === "auth-required") {
+        Alert.alert("需要登入", "請先登入後再進行社群驗證投票。");
+        return;
+      }
+
+      Alert.alert("投票失敗", "目前無法送出投票，請稍後再試。");
+    } finally {
+      setIsVoting(false);
+    }
   }
 
   return (
@@ -41,48 +119,99 @@ export default function DangerAreaSheet({ visible, onClose }) {
 
           <View style={styles.header}>
             <Image source={redDangerIcon} style={styles.warningIcon} />
-            <Text style={styles.title}>高危險區域</Text>
+            <Text style={styles.title}>{report?.dangerLevel || "危險區域"}</Text>
           </View>
 
-          
-            <View style={styles.metaItem}>
-              <Image source={mapPinIcon} style={styles.metaIcon} />
-              <Text style={styles.metaText}>近捷運科技大樓站</Text>
-            </View>
-          
+          <View style={styles.metaItem}>
+            <Image source={mapPinIcon} style={styles.metaIcon} />
+            <Text style={styles.metaText}>{locationText}</Text>
+          </View>
 
           <View style={styles.divider} />
 
           <Text style={styles.sectionTitle}>危險類型</Text>
-          <View style={styles.typeBadge}>
-            <Image source={faceIcon} style={styles.typeIcon} />
-            <Text style={styles.typeText}>偷竊</Text>
+          <View style={styles.typeRow}>
+            {typeList.length ? (
+              typeList.map((type) => (
+                <View key={type} style={styles.typeBadge}>
+                  <Image source={faceIcon} style={styles.typeIcon} />
+                  <Text style={styles.typeText}>{typeLabels[type] || type}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.typeBadge}>
+                <Image source={faceIcon} style={styles.typeIcon} />
+                <Text style={styles.typeText}>未分類</Text>
+              </View>
+            )}
           </View>
+
+          {report?.description ? (
+            <Text style={styles.description} numberOfLines={3}>
+              {report.description}
+            </Text>
+          ) : null}
 
           <View style={styles.divider} />
 
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>社群驗證</Text>
-            <Text style={styles.voteHint}>已有 50 人投票</Text>
+            <Text style={styles.voteHint}>已有 {voteCount} 人投票</Text>
           </View>
 
           <View style={styles.voteRow}>
             <Pressable
               accessibilityLabel="Trust this danger report"
               accessibilityRole="button"
-              style={[styles.voteButton, styles.voteButtonActive]}
+              disabled={isVoting}
+              onPress={() => handleVote("credible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "credible" ? styles.voteButtonActive : null,
+              ]}
             >
-              <Image source={thumbsUpIcon} style={styles.voteIcon} />
-              <Text style={[styles.voteText, styles.voteTextActive]}>可信(40)</Text>
+              <Image
+                source={thumbsUpIcon}
+                style={[
+                  styles.voteIcon,
+                  selectedVote === "credible" ? styles.voteIconActive : null,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "credible" ? styles.voteTextActive : null,
+                ]}
+              >
+                可信({credibleCount})
+              </Text>
             </Pressable>
 
             <Pressable
               accessibilityLabel="Distrust this danger report"
               accessibilityRole="button"
-              style={styles.voteButton}
+              disabled={isVoting}
+              onPress={() => handleVote("notCredible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "notCredible" ? styles.voteButtonActive : null,
+              ]}
             >
-              <Image source={thumbsDownIcon} style={styles.voteIcon} />
-              <Text style={styles.voteText}>不可信(10)</Text>
+              <Image
+                source={thumbsDownIcon}
+                style={[
+                  styles.voteIcon,
+                  selectedVote === "notCredible" ? styles.voteIconActive : null,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "notCredible" ? styles.voteTextActive : null,
+                ]}
+              >
+                不可信({notCredibleCount})
+              </Text>
             </Pressable>
           </View>
 
@@ -91,6 +220,7 @@ export default function DangerAreaSheet({ visible, onClose }) {
           <Pressable
             accessibilityLabel="View full incident"
             accessibilityRole="button"
+            disabled={!report?.id}
             onPress={handleViewFullEvent}
             style={styles.fullEventButton}
           >
@@ -150,6 +280,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   metaText: {
+    flex: 1,
     marginLeft: 9,
     color: "#111111",
     fontSize: 15,
@@ -172,6 +303,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     height: 34,
     marginTop: 10,
+    marginRight: 8,
     paddingHorizontal: 11,
     borderRadius: 10,
     backgroundColor: "#FFFFFF",
@@ -183,6 +315,17 @@ const styles = StyleSheet.create({
     color: "#000000",
     fontSize: 15,
     fontWeight: "900",
+  },
+  typeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  description: {
+    marginTop: 12,
+    color: "#111111",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 21,
   },
   sectionTitleRow: {
     flexDirection: "row",
@@ -210,7 +353,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#AFC2B5",
   },
   voteText: {
     marginLeft: 10,
@@ -219,7 +362,10 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   voteTextActive: {
-    color: "#000000",
+    color: "#FFFFFF",
+  },
+  voteIconActive: {
+    tintColor: "#FFFFFF",
   },
   metaIcon: {
     width: 22,

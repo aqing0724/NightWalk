@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   addDoc,
   collection,
+  doc,
   onSnapshot,
   orderBy,
   query,
@@ -22,6 +23,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../firebase";
+import { getCurrentVoterId, voteOnReport } from "../services/reportVoting";
 
 const redDangerIcon = require("../assets/redDanger.png");
 const mapPinIcon = require("../assets/MapPin.png");
@@ -31,14 +33,70 @@ const accountIcon = require("../assets/account_circle.png");
 const sendIcon = require("../assets/Send-2.png");
 const chevronIcon = require("../assets/Chevron right.png");
 
+const typeLabels = {
+  theft: "偷竊",
+  harass: "騷擾",
+  track: "跟蹤",
+};
+
 export default function DetailPage() {
   const router = useRouter();
   const { reportId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const [report, setReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isVoting, setIsVoting] = useState(false);
+  const [selectedVote, setSelectedVote] = useState(null);
   const currentReportId = Array.isArray(reportId) ? reportId[0] : reportId;
+
+  useEffect(() => {
+    setSelectedVote(null);
+  }, [currentReportId]);
+
+  useEffect(() => {
+    if (!currentReportId) {
+      setSelectedVote(null);
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "reports", currentReportId, "votes", getCurrentVoterId()),
+      (snapshot) => {
+        setSelectedVote(snapshot.exists() ? snapshot.data().vote : null);
+      }
+    );
+
+    return unsubscribe;
+  }, [currentReportId]);
+
+  useEffect(() => {
+    if (!currentReportId) {
+      setReport(null);
+      return undefined;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "reports", currentReportId),
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setReport(null);
+          return;
+        }
+
+        setReport({
+          id: snapshot.id,
+          ...snapshot.data(),
+        });
+      },
+      () => {
+        Alert.alert("讀取失敗", "目前無法讀取回報內容，請稍後再試。");
+      }
+    );
+
+    return unsubscribe;
+  }, [currentReportId]);
 
   useEffect(() => {
     if (!currentReportId) {
@@ -105,6 +163,37 @@ export default function DetailPage() {
     }
   }
 
+  async function handleVote(nextVote) {
+    if (!currentReportId || isVoting) {
+      return;
+    }
+
+    setIsVoting(true);
+
+    try {
+      await voteOnReport(currentReportId, nextVote);
+      setSelectedVote((currentVote) =>
+        currentVote === nextVote ? null : nextVote
+      );
+    } catch (error) {
+      if (error.message === "auth-required") {
+        Alert.alert("需要登入", "請先登入後再進行社群驗證投票。");
+        return;
+      }
+
+      Alert.alert("投票失敗", "目前無法送出投票，請稍後再試。");
+    } finally {
+      setIsVoting(false);
+    }
+  }
+
+  const credibleCount = report?.credibleCount ?? 0;
+  const notCredibleCount = report?.notCredibleCount ?? 0;
+  const voteCount = credibleCount + notCredibleCount;
+  const locationText =
+    report?.locationText || report?.selectedAddress || "未提供位置描述";
+  const typeList = report?.types?.length ? report.types : [];
+
   return (
     <View style={styles.screen}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6F6F6" />
@@ -136,54 +225,94 @@ export default function DetailPage() {
             <Image source={redDangerIcon} style={styles.warningIcon} />
 
             <View style={styles.reportTitleGroup}>
-              <Text style={styles.reportTitle}>可疑人物出沒</Text>
+              <Text style={styles.reportTitle}>
+                {report?.dangerLevel || "危險回報"}
+              </Text>
               <View style={styles.locationRow}>
                 <Image source={mapPinIcon} style={styles.locationIcon} />
-                <Text style={styles.locationText}>台北市大安區復興南路二段</Text>
+                <Text style={styles.locationText}>{locationText}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.tagRow}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>跟蹤</Text>
-            </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>騷擾</Text>
-            </View>
+            {typeList.length ? (
+              typeList.map((type) => (
+                <View key={type} style={styles.tag}>
+                  <Text style={styles.tagText}>{typeLabels[type] || type}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>未分類</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.description}>
-            一名黑色外套男子，手持酒瓶，在巷口徘徊，有人經過就會尾隨或是搭話，酒氣很重感覺神志不太清楚，會路過的話小心一點&gt;&lt;
+            {report?.description || "尚未提供情況說明。"}
           </Text>
         </View>
 
         <View style={styles.voteCard}>
           <View style={styles.voteTitleRow}>
             <Text style={styles.sectionTitle}>社群驗證</Text>
-            <Text style={styles.voteHint}>(已有 50 人投票)</Text>
+            <Text style={styles.voteHint}>(已有 {voteCount} 人投票)</Text>
           </View>
 
           <View style={styles.voteRow}>
             <Pressable
               accessibilityLabel="Mark report as credible"
               accessibilityRole="button"
-              style={[styles.voteButton, styles.voteButtonActive]}
+              disabled={isVoting}
+              onPress={() => handleVote("credible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "credible" ? styles.voteButtonActive : null,
+              ]}
             >
               <Image
                 source={thumbsUpIcon}
-                style={[styles.voteIcon, styles.voteIconActive]}
+                style={[
+                  styles.voteIcon,
+                  selectedVote === "credible" ? styles.voteIconActive : null,
+                ]}
               />
-              <Text style={[styles.voteText, styles.voteTextActive]}>可信(40)</Text>
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "credible" ? styles.voteTextActive : null,
+                ]}
+              >
+                可信({credibleCount})
+              </Text>
             </Pressable>
 
             <Pressable
               accessibilityLabel="Mark report as not credible"
               accessibilityRole="button"
-              style={styles.voteButton}
+              disabled={isVoting}
+              onPress={() => handleVote("notCredible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "notCredible" ? styles.voteButtonActive : null,
+              ]}
             >
-              <Image source={thumbsDownIcon} style={styles.voteIcon} />
-              <Text style={styles.voteText}>不可信(10)</Text>
+              <Image
+                source={thumbsDownIcon}
+                style={[
+                  styles.voteIcon,
+                  selectedVote === "notCredible" ? styles.voteIconActive : null,
+                ]}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "notCredible" ? styles.voteTextActive : null,
+                ]}
+              >
+                不可信({notCredibleCount})
+              </Text>
             </Pressable>
           </View>
         </View>

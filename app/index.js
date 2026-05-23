@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
-import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
+import { db } from "../firebase";
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -20,51 +22,131 @@ const cameraSettings = {
 
 const locationOptions = {
   accuracy: Location.Accuracy.BestForNavigation,
-  timeInterval: 1000,
-  distanceInterval: 1,
 };
+
+let cachedUserCenter = null;
+
+const dangerLevelColors = {
+  "需注意": "#F5C542",
+  "需小心": "#F08A24",
+  "極度危險": "#E94243",
+};
+
+function centerFromCoords(coords) {
+  if (!coords) {
+    return null;
+  }
+
+  return {
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+  };
+}
+
+function getDistanceInMeters(from, to) {
+  if (!from || !to) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const earthRadius = 6371000;
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const latitudeDistance = toRadians(to.latitude - from.latitude);
+  const longitudeDistance = toRadians(to.longitude - from.longitude);
+  const fromLatitude = toRadians(from.latitude);
+  const toLatitude = toRadians(to.latitude);
+  const haversine =
+    Math.sin(latitudeDistance / 2) ** 2 +
+    Math.cos(fromLatitude) *
+      Math.cos(toLatitude) *
+      Math.sin(longitudeDistance / 2) ** 2;
+
+  return (
+    earthRadius *
+    2 *
+    Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
+}
+
+function findNearestReport(reports, center) {
+  if (!reports.length || !center) {
+    return null;
+  }
+
+  return reports.reduce((nearest, report) => {
+    const reportDistance = getDistanceInMeters(center, report);
+
+    if (!nearest || reportDistance < nearest.distanceMeters) {
+      return {
+        ...report,
+        distanceMeters: reportDistance,
+      };
+    }
+
+    return nearest;
+  }, null);
+}
 
 export default function Page() {
   const insets = useSafeAreaInsets();
-  const mapRef = useRef(null);
-  const [mapReady, setMapReady] = useState(false);
+  const [mapCenter, setMapCenter] = useState(cachedUserCenter);
+  const [reports, setReports] = useState([]);
+  const [selectedReportId, setSelectedReportId] = useState(null);
   const [dangerSheetVisible, setDangerSheetVisible] = useState(false);
+  const nearestReport = findNearestReport(reports, mapCenter);
+  const selectedReport = selectedReportId
+    ? reports.find((report) => report.id === selectedReportId)
+    : null;
+  const visibleReport = selectedReport || nearestReport;
 
   useEffect(() => {
-    let subscription;
+    const reportsQuery = query(
+      collection(db, "reports"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsubscribe = onSnapshot(reportsQuery, (snapshot) => {
+      setReports(
+        snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter(
+            (report) =>
+              typeof report.latitude === "number" &&
+              typeof report.longitude === "number"
+          )
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
     let isMounted = true;
 
-    function moveCameraToLocation(location, duration = 700) {
-      if (!mapRef.current || !location?.coords) {
+    function saveUserCenter(location) {
+      const nextCenter = centerFromCoords(location?.coords);
+
+      if (!nextCenter || !isMounted) {
         return;
       }
 
-      const nextUserLocation = {
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        heading:
-          typeof location.coords.heading === "number" &&
-          location.coords.heading >= 0
-            ? location.coords.heading
-            : 0,
-      };
-
-      mapRef.current.animateCamera(
-        {
-          center: {
-            latitude: nextUserLocation.latitude,
-            longitude: nextUserLocation.longitude,
-          },
-          ...cameraSettings,
-        },
-        { duration }
-      );
+      cachedUserCenter = nextCenter;
+      setMapCenter(nextCenter);
     }
 
-    async function startTrackingUser() {
+    async function loadUserLocation() {
       const { status } = await Location.requestForegroundPermissionsAsync();
 
-      if (!isMounted || status !== "granted") {
+      if (!isMounted) {
+        return;
+      }
+
+      if (status !== "granted") {
+        if (!mapCenter) {
+          setMapCenter(fallbackCenter);
+        }
         return;
       }
 
@@ -76,64 +158,70 @@ export default function Page() {
         }
       }
 
-      const lastKnownLocation = await Location.getLastKnownPositionAsync({
-        maxAge: 5000,
-        requiredAccuracy: 50,
-      });
-
-      if (isMounted && lastKnownLocation) {
-        moveCameraToLocation(lastKnownLocation, 300);
-      }
-
       const currentLocation = await Location.getCurrentPositionAsync(
         locationOptions
       );
 
       if (isMounted) {
-        moveCameraToLocation(currentLocation, 700);
+        saveUserCenter(currentLocation);
       }
-
-      subscription = await Location.watchPositionAsync(
-        locationOptions,
-        (location) => {
-          if (isMounted) {
-            moveCameraToLocation(location, 500);
-          }
-        }
-      );
     }
 
-    if (mapReady) {
-      startTrackingUser();
-    }
+    loadUserLocation();
 
     return () => {
       isMounted = false;
-      subscription?.remove();
     };
-  }, [mapReady]);
+  }, []);
+
+  function handleUserLocationChange(event) {
+    const nextCenter = centerFromCoords(event.nativeEvent.coordinate);
+
+    if (nextCenter) {
+      cachedUserCenter = nextCenter;
+      setMapCenter(nextCenter);
+    }
+  }
 
   return (
     <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
-        style={styles.map}
-        userInterfaceStyle="dark"
-        initialCamera={{
-          center: fallbackCenter,
-          ...cameraSettings,
-        }}
-        showsUserLocation
-        showsMyLocationButton={false}
-        showsBuildings={false}
-        showsIndoorLevelPicker={false}
-        showsIndoors={false}
-        toolbarEnabled={false}
-        rotateEnabled
-        pitchEnabled
-        onMapReady={() => setMapReady(true)}
-      />
+      {mapCenter ? (
+        <MapView
+          provider={PROVIDER_GOOGLE}
+          style={styles.map}
+          userInterfaceStyle="dark"
+          initialCamera={{
+            center: mapCenter,
+            ...cameraSettings,
+          }}
+          showsUserLocation
+          showsMyLocationButton={false}
+          showsBuildings={false}
+          showsIndoorLevelPicker={false}
+          showsIndoors={false}
+          toolbarEnabled={false}
+          rotateEnabled
+          pitchEnabled
+          onUserLocationChange={handleUserLocationChange}
+        >
+          {reports.map((report) => (
+            <Marker
+              key={report.id}
+              coordinate={{
+                latitude: report.latitude,
+                longitude: report.longitude,
+              }}
+              pinColor={dangerLevelColors[report.dangerLevel] ?? "#E94243"}
+              title={report.locationText || "危險回報"}
+              description={report.description}
+              onPress={() => {
+                setSelectedReportId(report.id);
+                setDangerSheetVisible(true);
+              }}
+            />
+          ))}
+        </MapView>
+      ) : null}
 
       <View
         style={[
@@ -141,12 +229,24 @@ export default function Page() {
           { bottom: Math.max(insets.bottom, 26) + 100 },
         ]}
       >
-        <DangerAreaCard onPress={() => setDangerSheetVisible(true)} />
+        <DangerAreaCard
+          report={nearestReport}
+          onPress={() => {
+            if (nearestReport) {
+              setSelectedReportId(null);
+              setDangerSheetVisible(true);
+            }
+          }}
+        />
       </View>
 
       <DangerAreaSheet
         visible={dangerSheetVisible}
-        onClose={() => setDangerSheetVisible(false)}
+        report={visibleReport}
+        onClose={() => {
+          setDangerSheetVisible(false);
+          setSelectedReportId(null);
+        }}
       />
     </View>
   );
