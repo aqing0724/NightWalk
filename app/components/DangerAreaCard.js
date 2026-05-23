@@ -76,7 +76,7 @@ export default function DangerAreaCard({ report, onPress }) {
 
 const styles = StyleSheet.create({
   card: {
-    height: 75,
+    height:80,
     marginHorizontal: 0,
     paddingHorizontal: 10,
     borderRadius: 10,
