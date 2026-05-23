@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 import * as Location from "expo-location";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
@@ -8,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
 import { db } from "../firebase";
+
+const trackIcon = require("../assets/Track.png");
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -19,6 +28,8 @@ const cameraSettings = {
   heading: 330,
   zoom: 18,
 };
+
+const fallbackSheetHeight = 360;
 
 const locationOptions = {
   accuracy: Location.Accuracy.BestForNavigation,
@@ -32,8 +43,26 @@ const dangerLevelColors = {
   "極度危險": "#E94243",
 };
 
+function isValidCoordinate(coordinate) {
+  if (!coordinate) {
+    return false;
+  }
+
+  const { latitude, longitude } = coordinate;
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return false;
+  }
+
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return false;
+  }
+
+  return latitude !== 0 || longitude !== 0;
+}
+
 function centerFromCoords(coords) {
-  if (!coords) {
+  if (!isValidCoordinate(coords)) {
     return null;
   }
 
@@ -88,15 +117,26 @@ function findNearestReport(reports, center) {
 
 export default function Page() {
   const insets = useSafeAreaInsets();
-  const [mapCenter, setMapCenter] = useState(cachedUserCenter);
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const mapRef = useRef(null);
+  const [initialMapCenter, setInitialMapCenter] = useState(cachedUserCenter);
+  const [userCenter, setUserCenter] = useState(cachedUserCenter);
   const [reports, setReports] = useState([]);
   const [selectedReportId, setSelectedReportId] = useState(null);
   const [dangerSheetVisible, setDangerSheetVisible] = useState(false);
-  const nearestReport = findNearestReport(reports, mapCenter);
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const dangerCardBottom = Math.max(insets.bottom, 26) + 100;
+  const nearestReport = findNearestReport(reports, userCenter);
   const selectedReport = selectedReportId
     ? reports.find((report) => report.id === selectedReportId)
     : null;
   const visibleReport = selectedReport || nearestReport;
+
+  useEffect(() => {
+    if (dangerSheetVisible && visibleReport && sheetHeight) {
+      focusReportOnMap(visibleReport);
+    }
+  }, [dangerSheetVisible, sheetHeight, visibleReport?.id]);
 
   useEffect(() => {
     const reportsQuery = query(
@@ -113,8 +153,10 @@ export default function Page() {
           }))
           .filter(
             (report) =>
-              typeof report.latitude === "number" &&
-              typeof report.longitude === "number"
+              isValidCoordinate({
+                latitude: report.latitude,
+                longitude: report.longitude,
+              })
           )
       );
     });
@@ -133,7 +175,8 @@ export default function Page() {
       }
 
       cachedUserCenter = nextCenter;
-      setMapCenter(nextCenter);
+      setUserCenter(nextCenter);
+      setInitialMapCenter((currentCenter) => currentCenter || nextCenter);
     }
 
     async function loadUserLocation() {
@@ -144,8 +187,8 @@ export default function Page() {
       }
 
       if (status !== "granted") {
-        if (!mapCenter) {
-          setMapCenter(fallbackCenter);
+        if (!initialMapCenter) {
+          setInitialMapCenter(fallbackCenter);
         }
         return;
       }
@@ -158,12 +201,18 @@ export default function Page() {
         }
       }
 
-      const currentLocation = await Location.getCurrentPositionAsync(
-        locationOptions
-      );
+      try {
+        const currentLocation = await Location.getCurrentPositionAsync(
+          locationOptions
+        );
 
-      if (isMounted) {
-        saveUserCenter(currentLocation);
+        if (isMounted) {
+          saveUserCenter(currentLocation);
+        }
+      } catch {
+        if (isMounted && !initialMapCenter) {
+          setInitialMapCenter(fallbackCenter);
+        }
       }
     }
 
@@ -179,19 +228,106 @@ export default function Page() {
 
     if (nextCenter) {
       cachedUserCenter = nextCenter;
-      setMapCenter(nextCenter);
+      setUserCenter(nextCenter);
     }
+  }
+
+  async function focusReportOnMap(report) {
+    if (!report) {
+      return;
+    }
+
+    const reportCenter = {
+      latitude: report.latitude,
+      longitude: report.longitude,
+    };
+    const hiddenHeight = sheetHeight || fallbackSheetHeight;
+    const targetPoint = {
+      x: screenWidth / 2,
+      y: Math.max(0, (screenHeight - hiddenHeight) / 2),
+    };
+    const screenCenterPoint = {
+      x: screenWidth / 2,
+      y: screenHeight / 2,
+    };
+    let center = reportCenter;
+
+    try {
+      const targetCoordinate =
+        await mapRef.current?.coordinateForPoint(targetPoint);
+      const screenCenterCoordinate =
+        await mapRef.current?.coordinateForPoint(screenCenterPoint);
+
+      if (
+        isValidCoordinate(targetCoordinate) &&
+        isValidCoordinate(screenCenterCoordinate)
+      ) {
+        center = {
+          latitude:
+            report.latitude +
+            screenCenterCoordinate.latitude -
+            targetCoordinate.latitude,
+          longitude:
+            report.longitude +
+            screenCenterCoordinate.longitude -
+            targetCoordinate.longitude,
+        };
+      }
+    } catch {
+      center = reportCenter;
+    }
+
+    mapRef.current?.animateCamera(
+      {
+        center,
+        ...cameraSettings,
+      },
+      { duration: 650 }
+    );
+  }
+
+  async function handleRecenterToUser() {
+    let nextCenter = userCenter;
+
+    if (!nextCenter) {
+      try {
+        const currentLocation = await Location.getCurrentPositionAsync(
+          locationOptions
+        );
+
+        nextCenter = centerFromCoords(currentLocation.coords);
+      } catch {
+        nextCenter = null;
+      }
+    }
+
+    if (!nextCenter) {
+      return;
+    }
+
+    cachedUserCenter = nextCenter;
+    setUserCenter(nextCenter);
+    setInitialMapCenter((currentCenter) => currentCenter || nextCenter);
+
+    mapRef.current?.animateCamera(
+      {
+        center: nextCenter,
+        ...cameraSettings,
+      },
+      { duration: 450 }
+    );
   }
 
   return (
     <View style={styles.container}>
-      {mapCenter ? (
+      {initialMapCenter ? (
         <MapView
+          ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
           userInterfaceStyle="dark"
           initialCamera={{
-            center: mapCenter,
+            center: initialMapCenter,
             ...cameraSettings,
           }}
           showsUserLocation
@@ -216,6 +352,7 @@ export default function Page() {
               description={report.description}
               onPress={() => {
                 setSelectedReportId(report.id);
+                focusReportOnMap(report);
                 setDangerSheetVisible(true);
               }}
             />
@@ -226,7 +363,7 @@ export default function Page() {
       <View
         style={[
           styles.dangerCard,
-          { bottom: Math.max(insets.bottom, 26) + 100 },
+          { bottom: dangerCardBottom },
         ]}
       >
         <DangerAreaCard
@@ -234,15 +371,30 @@ export default function Page() {
           onPress={() => {
             if (nearestReport) {
               setSelectedReportId(null);
+              focusReportOnMap(nearestReport);
               setDangerSheetVisible(true);
             }
           }}
         />
       </View>
 
+      <Pressable
+        accessibilityLabel="回到目前位置"
+        accessibilityRole="button"
+        onPress={handleRecenterToUser}
+        style={({ pressed }) => [
+          styles.recenterButton,
+          { bottom: dangerCardBottom + 75 + 14 },
+          pressed ? styles.recenterButtonPressed : null,
+        ]}
+      >
+        <Image source={trackIcon} style={styles.recenterIcon} />
+      </Pressable>
+
       <DangerAreaSheet
         visible={dangerSheetVisible}
         report={visibleReport}
+        onSheetLayout={setSheetHeight}
         onClose={() => {
           setDangerSheetVisible(false);
           setSelectedReportId(null);
@@ -266,5 +418,29 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 2,
     elevation: 2,
+  },
+  recenterButton: {
+    position: "absolute",
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    zIndex: 3,
+    elevation: 3,
+  },
+  recenterButtonPressed: {
+    transform: [{ scale: 0.96 }],
+  },
+  recenterIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
   },
 });

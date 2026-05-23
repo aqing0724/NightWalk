@@ -25,6 +25,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../firebase";
 import { getCurrentVoterId, voteOnReport } from "../services/reportVoting";
 
+const yellowDangerIcon = require("../assets/yellowDanger.png");
+const orangeDangerIcon = require("../assets/orangeDanger.png");
 const redDangerIcon = require("../assets/redDanger.png");
 const mapPinIcon = require("../assets/MapPin.png");
 const thumbsUpIcon = require("../assets/ThumbsUp.png");
@@ -37,6 +39,14 @@ const typeLabels = {
   theft: "偷竊",
   harass: "騷擾",
   track: "跟蹤",
+};
+
+const dangerLevelIcons = {
+  "需要注意": yellowDangerIcon,
+  "需注意": yellowDangerIcon,
+  "有點危險": orangeDangerIcon,
+  "需小心": orangeDangerIcon,
+  "極度危險": redDangerIcon,
 };
 
 export default function DetailPage() {
@@ -193,6 +203,9 @@ export default function DetailPage() {
   const locationText =
     report?.locationText || report?.selectedAddress || "未提供位置描述";
   const typeList = report?.types?.length ? report.types : [];
+  const warningIcon = report
+    ? dangerLevelIcons[report.dangerLevel] || redDangerIcon
+    : redDangerIcon;
 
   return (
     <View style={styles.screen}>
@@ -222,7 +235,7 @@ export default function DetailPage() {
       >
         <View style={styles.reportCard}>
           <View style={styles.reportHeader}>
-            <Image source={redDangerIcon} style={styles.warningIcon} />
+            <Image source={warningIcon} style={styles.warningIcon} />
 
             <View style={styles.reportTitleGroup}>
               <Text style={styles.reportTitle}>

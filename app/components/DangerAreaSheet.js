@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { db } from "../../firebase";
 import { getCurrentVoterId, voteOnReport } from "../../services/reportVoting";
 
+const yellowDangerIcon = require("../../assets/yellowDanger.png");
+const orangeDangerIcon = require("../../assets/orangeDanger.png");
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
 const thumbsUpIcon = require("../../assets/ThumbsUp.png");
@@ -27,7 +29,20 @@ const typeLabels = {
   track: "跟蹤",
 };
 
-export default function DangerAreaSheet({ visible, report, onClose }) {
+const dangerLevelIcons = {
+  "需要注意": yellowDangerIcon,
+  "需注意": yellowDangerIcon,
+  "有點危險": orangeDangerIcon,
+  "需小心": orangeDangerIcon,
+  "極度危險": redDangerIcon,
+};
+
+export default function DangerAreaSheet({
+  visible,
+  report,
+  onClose,
+  onSheetLayout,
+}) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isVoting, setIsVoting] = useState(false);
@@ -38,6 +53,9 @@ export default function DangerAreaSheet({ visible, report, onClose }) {
   const locationText =
     report?.locationText || report?.selectedAddress || "危險回報位置";
   const typeList = report?.types?.length ? report.types : [];
+  const warningIcon = report
+    ? dangerLevelIcons[report.dangerLevel] || redDangerIcon
+    : faceIcon;
 
   useEffect(() => {
     setSelectedVote(null);
@@ -114,11 +132,14 @@ export default function DangerAreaSheet({ visible, report, onClose }) {
 
         <View
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+          onLayout={(event) => {
+            onSheetLayout?.(event.nativeEvent.layout.height);
+          }}
         >
           <View style={styles.handle} />
 
           <View style={styles.header}>
-            <Image source={redDangerIcon} style={styles.warningIcon} />
+            <Image source={warningIcon} style={styles.warningIcon} />
             <Text style={styles.title}>{report?.dangerLevel || "危險區域"}</Text>
           </View>
 
