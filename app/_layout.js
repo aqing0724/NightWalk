@@ -20,7 +20,10 @@ function AppFrame() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const showNavigation =
-    pathname === "/" || pathname === "/Add" || pathname === "/Account";
+    pathname === "/" ||
+    pathname === "/Add" ||
+    pathname === "/Account" ||
+    pathname === "/Login";
 
   return (
     <>

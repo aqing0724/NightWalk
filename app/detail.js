@@ -20,10 +20,11 @@ import {
   query,
   serverTimestamp,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../firebase";
-import { getCurrentVoterId, voteOnReport } from "../services/reportVoting";
+import { voteOnReport } from "../services/reportVoting";
 
 const yellowDangerIcon = require("../assets/yellowDanger.png");
 const orangeDangerIcon = require("../assets/orangeDanger.png");
@@ -59,27 +60,38 @@ export default function DetailPage() {
   const [isSending, setIsSending] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const currentReportId = Array.isArray(reportId) ? reportId[0] : reportId;
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+
+      if (!user) {
+        setSelectedVote(null);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     setSelectedVote(null);
   }, [currentReportId]);
 
   useEffect(() => {
-    if (!currentReportId) {
+    if (!currentReportId || !currentUser) {
       setSelectedVote(null);
       return undefined;
     }
 
     const unsubscribe = onSnapshot(
-      doc(db, "reports", currentReportId, "votes", getCurrentVoterId()),
+      doc(db, "reports", currentReportId, "votes", currentUser.uid),
       (snapshot) => {
         setSelectedVote(snapshot.exists() ? snapshot.data().vote : null);
       }
     );
 
     return unsubscribe;
-  }, [currentReportId]);
+  }, [currentReportId, currentUser]);
 
   useEffect(() => {
     if (!currentReportId) {
@@ -143,9 +155,15 @@ export default function DetailPage() {
     }
 
     const nextMessage = message.trim();
+    const user = auth.currentUser;
 
     if (!currentReportId) {
       Alert.alert("無法留言", "缺少回報資料，請從回報列表重新進入。");
+      return;
+    }
+
+    if (!user) {
+      showLoginRequiredAlert("登入後才能發表評論。");
       return;
     }
 
@@ -156,12 +174,10 @@ export default function DetailPage() {
     setIsSending(true);
 
     try {
-      const user = auth.currentUser;
-
       await addDoc(collection(db, "reports", currentReportId, "comments"), {
         message: nextMessage,
-        userId: user?.uid ?? null,
-        userName: user?.displayName ?? user?.email ?? "匿名使用者",
+        userId: user.uid,
+        userName: user.displayName ?? user.email ?? "NightWalk 使用者",
         createdAt: serverTimestamp(),
       });
 
@@ -178,6 +194,11 @@ export default function DetailPage() {
       return;
     }
 
+    if (!auth.currentUser) {
+      showLoginRequiredAlert("登入後才能進行社群驗證投票。");
+      return;
+    }
+
     setIsVoting(true);
 
     try {
@@ -187,7 +208,7 @@ export default function DetailPage() {
       );
     } catch (error) {
       if (error.message === "auth-required") {
-        Alert.alert("需要登入", "請先登入後再進行社群驗證投票。");
+        showLoginRequiredAlert("登入後才能進行社群驗證投票。");
         return;
       }
 
@@ -195,6 +216,13 @@ export default function DetailPage() {
     } finally {
       setIsVoting(false);
     }
+  }
+
+  function showLoginRequiredAlert(message) {
+    Alert.alert("請先登入", message, [
+      { text: "取消", style: "cancel" },
+      { text: "前往登入", onPress: () => router.push("/Login") },
+    ]);
   }
 
   const credibleCount = report?.credibleCount ?? 0;
@@ -358,7 +386,13 @@ export default function DetailPage() {
           <Image source={accountIcon} style={styles.inputAvatarIcon} />
           <TextInput
             accessibilityLabel="Write a comment"
-            placeholder="發表你的評論..."
+            editable={!!currentUser}
+            onPressIn={() => {
+              if (!currentUser) {
+                showLoginRequiredAlert("登入後才能發表評論。");
+              }
+            }}
+            placeholder={currentUser ? "發表你的評論..." : "登入後才能發表評論"}
             placeholderTextColor="#9A9A9A"
             style={styles.commentInput}
             value={message}

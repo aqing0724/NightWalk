@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -96,6 +98,7 @@ async function geocodeAddress(searchText) {
 }
 
 export default function AddPage() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const hasSearchedLocationRef = useRef(false);
@@ -110,8 +113,30 @@ export default function AddPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFindingLocation, setIsFindingLocation] = useState(true);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthChecked(true);
+
+      if (!user) {
+        setIsFindingLocation(false);
+        Alert.alert("請先登入", "登入後才能新增危險地點回報。", [
+          { text: "前往登入", onPress: () => router.replace("/Login") },
+        ]);
+      }
+    });
+
+    return unsubscribe;
+  }, [router]);
+
+  useEffect(() => {
+    if (!authChecked || !currentUser) {
+      return;
+    }
+
     let isMounted = true;
 
     async function centerMapOnUserLocation() {
@@ -162,7 +187,7 @@ export default function AddPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [authChecked, currentUser]);
 
   async function handleSearchLocation() {
     const searchText = locationText.trim();
@@ -235,6 +260,15 @@ export default function AddPage() {
       return;
     }
 
+    const user = auth.currentUser;
+
+    if (!user) {
+      Alert.alert("請先登入", "登入後才能新增危險地點回報。", [
+        { text: "前往登入", onPress: () => router.replace("/Login") },
+      ]);
+      return;
+    }
+
     if (
       !locationText.trim() ||
       !description.trim() ||
@@ -258,7 +292,7 @@ export default function AddPage() {
         longitude: selectedLocation.longitude,
         credibleCount: 0,
         notCredibleCount: 0,
-        userId: auth.currentUser?.uid ?? null,
+        userId: user.uid,
         createdAt: serverTimestamp(),
       });
 

@@ -1,5 +1,9 @@
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+
+import { auth } from "../../firebase";
 
 const homeIcon = require("../../assets/Home-black.png");
 const userIcon = require("../../assets/User-black.png");
@@ -7,6 +11,11 @@ const userIcon = require("../../assets/User-black.png");
 export default function BottomNavigation({ activeRoute = "home" }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, setCurrentUser);
+  }, []);
 
   function navigateIfNeeded(nextPath) {
     if (pathname === nextPath) {
@@ -14,6 +23,22 @@ export default function BottomNavigation({ activeRoute = "home" }) {
     }
 
     router.push(nextPath);
+  }
+
+  function handleAddPress() {
+    if (!currentUser) {
+      Alert.alert("請先登入", "登入後才能新增危險地點回報。", [
+        { text: "取消", style: "cancel" },
+        { text: "前往登入", onPress: () => navigateIfNeeded("/Login") },
+      ]);
+      return;
+    }
+
+    navigateIfNeeded("/Add");
+  }
+
+  function handleProfilePress() {
+    navigateIfNeeded(currentUser ? "/Account" : "/Login");
   }
 
   return (
@@ -33,7 +58,7 @@ export default function BottomNavigation({ activeRoute = "home" }) {
         <Pressable
           accessibilityLabel="Profile"
           accessibilityRole="button"
-          onPress={() => navigateIfNeeded("/Account")}
+          onPress={handleProfilePress}
           style={styles.navItem}
         >
           <Image source={userIcon} style={styles.navIcon} />
@@ -43,7 +68,7 @@ export default function BottomNavigation({ activeRoute = "home" }) {
       <Pressable
         accessibilityLabel="Add"
         accessibilityRole="button"
-        onPress={() => navigateIfNeeded("/Add")}
+        onPress={handleAddPress}
         style={[
           styles.addButton,
           activeRoute === "add" ? styles.addButtonActive : null,

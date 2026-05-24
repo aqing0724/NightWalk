@@ -2,12 +2,14 @@ import { doc, runTransaction, serverTimestamp } from "firebase/firestore";
 
 import { auth, db } from "../firebase";
 
-const testVoterId = `test-voter-${Date.now()}-${Math.random()
-  .toString(36)
-  .slice(2)}`;
-
 export function getCurrentVoterId() {
-  return auth.currentUser?.uid ?? testVoterId;
+  const userId = auth.currentUser?.uid;
+
+  if (!userId) {
+    throw new Error("auth-required");
+  }
+
+  return userId;
 }
 
 export async function voteOnReport(reportId, nextVote) {

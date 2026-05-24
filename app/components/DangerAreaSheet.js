@@ -9,11 +9,12 @@ import {
 } from "react-native";
 import { useEffect, useState } from "react";
 import { useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { db } from "../../firebase";
-import { getCurrentVoterId, voteOnReport } from "../../services/reportVoting";
+import { auth, db } from "../../firebase";
+import { voteOnReport } from "../../services/reportVoting";
 
 const yellowDangerIcon = require("../../assets/yellowDanger.png");
 const orangeDangerIcon = require("../../assets/orangeDanger.png");
@@ -56,6 +57,7 @@ export default function DangerAreaSheet({
   const insets = useSafeAreaInsets();
   const [isVoting, setIsVoting] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const credibleCount = report?.credibleCount ?? 0;
   const notCredibleCount = report?.notCredibleCount ?? 0;
   const voteCount = credibleCount + notCredibleCount;
@@ -71,20 +73,30 @@ export default function DangerAreaSheet({
   }, [report?.id]);
 
   useEffect(() => {
-    if (!report?.id) {
+    return onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+
+      if (!user) {
+        setSelectedVote(null);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!report?.id || !currentUser) {
       setSelectedVote(null);
       return undefined;
     }
 
     const unsubscribe = onSnapshot(
-      doc(db, "reports", report.id, "votes", getCurrentVoterId()),
+      doc(db, "reports", report.id, "votes", currentUser.uid),
       (snapshot) => {
         setSelectedVote(snapshot.exists() ? snapshot.data().vote : null);
       }
     );
 
     return unsubscribe;
-  }, [report?.id]);
+  }, [report?.id, currentUser]);
 
   function handleViewFullEvent() {
     if (!report?.id) {
@@ -105,6 +117,11 @@ export default function DangerAreaSheet({
       return;
     }
 
+    if (!auth.currentUser) {
+      showLoginRequiredAlert();
+      return;
+    }
+
     setIsVoting(true);
 
     try {
@@ -114,7 +131,7 @@ export default function DangerAreaSheet({
       );
     } catch (error) {
       if (error.message === "auth-required") {
-        Alert.alert("需要登入", "請先登入後再進行社群驗證投票。");
+        showLoginRequiredAlert();
         return;
       }
 
@@ -122,6 +139,21 @@ export default function DangerAreaSheet({
     } finally {
       setIsVoting(false);
     }
+  }
+
+  function showLoginRequiredAlert() {
+    Alert.alert("請先登入", "登入後才能進行社群驗證投票。", [
+      { text: "取消", style: "cancel" },
+      {
+        text: "前往登入",
+        onPress: () => {
+          onClose?.();
+          requestAnimationFrame(() => {
+            router.push("/Login");
+          });
+        },
+      },
+    ]);
   }
 
   return (
