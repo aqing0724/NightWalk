@@ -19,6 +19,9 @@ const yellowDangerIcon = require("../../assets/yellowDanger.png");
 const orangeDangerIcon = require("../../assets/orangeDanger.png");
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
+const theftIcon = require("../../assets/Theft.png");
+const harassIcon = require("../../assets/Harass.png");
+const trackIcon = require("../../assets/Track.png");
 const thumbsUpIcon = require("../../assets/ThumbsUp.png");
 const thumbsDownIcon = require("../../assets/ThumbsDown.png");
 const mapPinIcon = require("../../assets/MapPin.png");
@@ -27,6 +30,12 @@ const typeLabels = {
   theft: "偷竊",
   harass: "騷擾",
   track: "跟蹤",
+};
+
+const typeIcons = {
+  theft: theftIcon,
+  harass: harassIcon,
+  track: trackIcon,
 };
 
 const dangerLevelIcons = {
@@ -155,7 +164,10 @@ export default function DangerAreaSheet({
             {typeList.length ? (
               typeList.map((type) => (
                 <View key={type} style={styles.typeBadge}>
-                  <Image source={faceIcon} style={styles.typeIcon} />
+                  <Image
+                    source={typeIcons[type] || faceIcon}
+                    style={styles.typeIcon}
+                  />
                   <Text style={styles.typeText}>{typeLabels[type] || type}</Text>
                 </View>
               ))
@@ -166,6 +178,9 @@ export default function DangerAreaSheet({
               </View>
             )}
           </View>
+
+          <View style={styles.divider} />
+          <Text style={styles.sectionTitle}>危險描述</Text>
 
           {report?.description ? (
             <Text style={styles.description} numberOfLines={3}>
@@ -322,22 +337,24 @@ const styles = StyleSheet.create({
   },
   typeBadge: {
     alignSelf: "flex-start",
-    height: 34,
-    marginTop: 10,
-    marginRight: 8,
-    paddingHorizontal: 11,
+    height: 36,
+    marginRight: 10,
+    marginBottom: 8,
+    paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
   },
   typeText: {
-    marginLeft: 10,
+    marginLeft: 8,
     color: "#000000",
     fontSize: 15,
     fontWeight: "900",
   },
   typeRow: {
+    marginTop: 10,
+    marginBottom: -8,
     flexDirection: "row",
     flexWrap: "wrap",
   },
@@ -394,8 +411,8 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   typeIcon: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     resizeMode: "contain",
   },
   voteIcon: {

@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: "#000000",
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: "900",
     lineHeight: 31,
   },
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
     width: "48%",
     height: 30,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F7F7F7",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

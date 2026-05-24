@@ -384,7 +384,7 @@ export default function Page() {
         onPress={handleRecenterToUser}
         style={({ pressed }) => [
           styles.recenterButton,
-          { bottom: dangerCardBottom + 75 + 14 },
+          { bottom: dangerCardBottom + 75 + 28 },
           pressed ? styles.recenterButtonPressed : null,
         ]}
       >
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     left: 20,
     right: 20,
     zIndex: 2,
-    elevation: 2,
+
   },
   recenterButton: {
     position: "absolute",
@@ -428,12 +428,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    zIndex: 3,
-    elevation: 3,
   },
   recenterButtonPressed: {
     transform: [{ scale: 0.96 }],
