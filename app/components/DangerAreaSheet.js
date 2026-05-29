@@ -16,8 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebase";
 import { voteOnReport } from "../../services/reportVoting";
 
-const yellowDangerIcon = require("../../assets/yellowDanger.png");
-const orangeDangerIcon = require("../../assets/orangeDanger.png");
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
 const theftIcon = require("../../assets/Theft.png");
@@ -39,14 +37,6 @@ const typeIcons = {
   track: trackIcon,
 };
 
-const dangerLevelIcons = {
-  "需要注意": yellowDangerIcon,
-  "需注意": yellowDangerIcon,
-  "有點危險": orangeDangerIcon,
-  "需小心": orangeDangerIcon,
-  "極度危險": redDangerIcon,
-};
-
 export default function DangerAreaSheet({
   visible,
   report,
@@ -64,9 +54,7 @@ export default function DangerAreaSheet({
   const locationText =
     report?.locationText || report?.selectedAddress || "危險回報位置";
   const typeList = report?.types?.length ? report.types : [];
-  const warningIcon = report
-    ? dangerLevelIcons[report.dangerLevel] || redDangerIcon
-    : faceIcon;
+  const warningIcon = report ? redDangerIcon : faceIcon;
 
   useEffect(() => {
     setSelectedVote(null);
@@ -181,7 +169,7 @@ export default function DangerAreaSheet({
 
           <View style={styles.header}>
             <Image source={warningIcon} style={styles.warningIcon} />
-            <Text style={styles.title}>{report?.dangerLevel || "危險區域"}</Text>
+            <Text style={styles.title}>危險區域</Text>
           </View>
 
           <View style={styles.metaItem}>

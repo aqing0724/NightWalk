@@ -23,9 +23,6 @@ const theftIcon = require("../assets/Theft.png");
 const harassIcon = require("../assets/Harass.png");
 const trackIcon = require("../assets/Track.png");
 const imageIcon = require("../assets/image.png");
-const yellowDangerIcon = require("../assets/yellowDanger.png");
-const orangeDangerIcon = require("../assets/orangeDanger.png");
-const redDangerIcon = require("../assets/redDanger.png");
 
 const reportLocation = {
   latitude: 24.988,
@@ -44,12 +41,6 @@ const dangerTypes = [
   { id: "theft", label: "偷竊", icon: theftIcon },
   { id: "harass", label: "騷擾", icon: harassIcon },
   { id: "track", label: "跟蹤", icon: trackIcon },
-];
-
-const dangerLevels = [
-  { id: "notice", label: "需要注意", icon: yellowDangerIcon },
-  { id: "caution", label: "有點危險", icon: orangeDangerIcon },
-  { id: "critical", label: "極度危險", icon: redDangerIcon },
 ];
 
 function buildGeocodingQueries(searchText) {
@@ -109,7 +100,6 @@ export default function AddPage() {
   const [locationText, setLocationText] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTypes, setSelectedTypes] = useState([]);
-  const [dangerLevel, setDangerLevel] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFindingLocation, setIsFindingLocation] = useState(true);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
@@ -272,10 +262,9 @@ export default function AddPage() {
     if (
       !locationText.trim() ||
       !description.trim() ||
-      selectedTypes.length === 0 ||
-      !dangerLevel
+      selectedTypes.length === 0
     ) {
-      Alert.alert("資料未完成", "請填寫位置、危險類型、危險程度與情況說明。");
+      Alert.alert("資料未完成", "請填寫位置、危險類型與情況說明。");
       return;
     }
 
@@ -287,7 +276,6 @@ export default function AddPage() {
         selectedAddress,
         description: description.trim(),
         types: selectedTypes,
-        dangerLevel,
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
         credibleCount: 0,
@@ -300,7 +288,6 @@ export default function AddPage() {
       setSelectedAddress("");
       setDescription("");
       setSelectedTypes([]);
-      setDangerLevel("");
       Alert.alert("已送出", "謝謝你的回報。");
     } catch (error) {
       Alert.alert("送出失敗", "目前無法送出回報，請稍後再試。");
@@ -446,27 +433,7 @@ export default function AddPage() {
         </View>
         <Text style={styles.moreText}>更多...</Text>
 
-        <Text style={styles.sectionTitle}>3.危險程度</Text>
-        <View style={styles.optionRow}>
-          {dangerLevels.map((level) => (
-            <Pressable
-              key={level.id}
-              accessibilityLabel={level.label}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: dangerLevel === level.label }}
-              onPress={() => setDangerLevel(level.label)}
-              style={[
-                styles.optionCard,
-                dangerLevel === level.label ? styles.optionCardSelected : null,
-              ]}
-            >
-              <Image source={level.icon} style={styles.dangerLevelIcon} />
-              <Text style={styles.optionLabel}>{level.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <Text style={styles.sectionTitle}>4.情況說明</Text>
+        <Text style={styles.sectionTitle}>3.情況說明</Text>
         <TextInput
           accessibilityLabel="Describe situation"
           multiline
@@ -478,7 +445,7 @@ export default function AddPage() {
           onChangeText={setDescription}
         />
 
-        <Text style={styles.sectionTitle}>5.上傳照片 (選填)</Text>
+        <Text style={styles.sectionTitle}>4.上傳照片 (選填)</Text>
         <Pressable
           accessibilityLabel="Add photo"
           accessibilityRole="button"
@@ -642,12 +609,6 @@ const styles = StyleSheet.create({
     height: 34,
     resizeMode: "contain",
     paddingTop:0,
-  },
-  dangerLevelIcon: {
-    width: 40,
-    height: 40,
-    resizeMode: "contain",
-    paddingBottom:0,
   },
   optionLabel: {
     marginTop: 9,

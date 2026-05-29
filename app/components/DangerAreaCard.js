@@ -1,23 +1,8 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-const yellowDangerIcon = require("../../assets/yellowDanger.png");
-const orangeDangerIcon = require("../../assets/orangeDanger.png");
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
 const pointRightIcon = require("../../assets/PointRight.png");
-
-const dangerLevelIcons = {
-  "需要注意": yellowDangerIcon,
-  "有點危險": orangeDangerIcon,
-  "極度危險": redDangerIcon,
-};
-
-const dangerLevelTitles = {
-  "需要注意": "需要注意區域",
-  "有點危險": "有點危險區域",
-  "極度危險": "極度危險區域",
-
-};
 
 function formatDistance(distanceMeters) {
   if (typeof distanceMeters !== "number" || !Number.isFinite(distanceMeters)) {
@@ -37,12 +22,8 @@ export default function DangerAreaCard({ report, onPress }) {
       report.selectedAddress ||
       formatDistance(report.distanceMeters)
     : "附近目前沒有危險回報";
-  const warningIcon = report
-    ? dangerLevelIcons[report.dangerLevel] || redDangerIcon
-    : faceIcon;
-  const title = report
-    ? dangerLevelTitles[report.dangerLevel] || "危險區域"
-    : "安全區域";
+  const warningIcon = report ? redDangerIcon : faceIcon;
+  const title = report ? "危險區域" : "安全區域";
 
   return (
     <Pressable

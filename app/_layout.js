@@ -43,7 +43,7 @@ function AppFrame() {
             { paddingBottom: Math.max(insets.bottom, 26) },
           ]}
         >
-          <BottomNavigation activeRoute={pathname === "/Add" ? "add" : "home"} />
+          <BottomNavigation />
         </View>
       ) : null}
     </>
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     zIndex: 20,
     elevation: 20,
   },

@@ -37,12 +37,6 @@ const locationOptions = {
 
 let cachedUserCenter = null;
 
-const dangerLevelColors = {
-  "需注意": "#F5C542",
-  "需小心": "#F08A24",
-  "極度危險": "#E94243",
-};
-
 function isValidCoordinate(coordinate) {
   if (!coordinate) {
     return false;
@@ -347,7 +341,7 @@ export default function Page() {
                 latitude: report.latitude,
                 longitude: report.longitude,
               }}
-              pinColor={dangerLevelColors[report.dangerLevel] ?? "#E94243"}
+              pinColor="#E94243"
               title={report.locationText || "危險回報"}
               description={report.description}
               onPress={() => {
