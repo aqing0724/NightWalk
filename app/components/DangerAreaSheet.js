@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import {
   Alert,
   Image,
@@ -159,7 +160,10 @@ export default function DangerAreaSheet({
           style={styles.backdrop}
         />
 
-        <View
+        <BlurView
+          experimentalBlurMethod="dimezisBlurView"
+          intensity={70}
+          tint="systemMaterial"
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
           onLayout={(event) => {
             onSheetLayout?.(event.nativeEvent.layout.height);
@@ -282,7 +286,7 @@ export default function DangerAreaSheet({
           >
             <Text style={styles.fullEventText}>點擊查看完整事件</Text>
           </Pressable>
-        </View>
+        </BlurView>
       </View>
     </Modal>
   );
@@ -303,17 +307,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
-    backgroundColor: "#F7F7F7",
+    overflow: "hidden",
+    backgroundColor: "rgba(0, 0, 0, 0.28)",
   },
   handle: {
     alignSelf: "center",
     width: 36,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "#BFBFBF",
+    backgroundColor: "rgba(255, 255, 255, 0.42)",
   },
   header: {
-    marginTop: 24,
+    marginTop: 22,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -325,12 +330,13 @@ const styles = StyleSheet.create({
   title: {
     marginLeft: 12,
     color: "#000000",
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "900",
-    lineHeight: 28,
+    lineHeight: 30,
   },
 
   metaItem: {
+    marginTop: 12,
     marginRight: 22,
     flexDirection: "row",
     alignItems: "center",
@@ -338,39 +344,40 @@ const styles = StyleSheet.create({
   metaText: {
     flex: 1,
     marginLeft: 9,
-    color: "#111111",
-    fontSize: 15,
-    fontWeight: "800",
+    color: "#000000",
+    fontSize: 14,
+    fontWeight: "700",
     lineHeight: 20,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginTop: 20,
-    marginBottom: 18,
-    backgroundColor: "#D8D8D8",
+    marginTop: 18,
+    marginBottom: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
   sectionTitle: {
     color: "#000000",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
-    lineHeight: 24,
+    lineHeight: 23,
   },
   typeBadge: {
     alignSelf: "flex-start",
-    height: 36,
+    height: 34,
     marginRight: 10,
     marginBottom: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     flexDirection: "row",
     alignItems: "center",
   },
   typeText: {
     marginLeft: 8,
     color: "#000000",
-    fontSize: 15,
-    fontWeight: "900",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
   },
   typeRow: {
     marginTop: 10,
@@ -379,22 +386,22 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
   },
   description: {
-    marginTop: 12,
-    color: "#111111",
+    marginTop: 10,
+    color: "#000000",
     fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 21,
+    fontWeight: "600",
+    lineHeight: 20,
   },
   sectionTitleRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
+    alignItems: "center",
   },
   voteHint: {
-    marginLeft: 2,
-    marginBottom: 3,
-    color: "#B5B5B5",
-    fontSize: 10,
-    fontWeight: "800",
+    marginLeft: 8,
+    color: "#000000",
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 15,
   },
   voteRow: {
     marginTop: 12,
@@ -403,9 +410,9 @@ const styles = StyleSheet.create({
   },
   voteButton: {
     width: "47%",
-    height: 31,
+    height: 34,
     borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -414,43 +421,49 @@ const styles = StyleSheet.create({
     backgroundColor: "#AFC2B5",
   },
   voteText: {
-    marginLeft: 10,
+    marginLeft: 8,
     color: "#000000",
-    fontSize: 16,
-    fontWeight: "900",
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
   },
   voteTextActive: {
-    color: "#FFFFFF",
+    color: "#000000",
   },
   voteIconActive: {
-    tintColor: "#FFFFFF",
+    tintColor: "#000000",
   },
   metaIcon: {
     width: 22,
     height: 22,
     resizeMode: "contain",
+    tintColor: "#000000",
+    opacity: 1,
   },
   typeIcon: {
     width: 20,
     height: 20,
     resizeMode: "contain",
+    tintColor: "#000000",
   },
   voteIcon: {
     width: 21,
     height: 21,
     resizeMode: "contain",
+    tintColor: "#000000",
   },
   fullEventButton: {
     height: 40,
     marginTop: 16,
     borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
     alignItems: "center",
     justifyContent: "center",
   },
   fullEventText: {
-    color: "#AFC2B5",
+    color: "#A6BAAE",
     fontSize: 15,
     fontWeight: "900",
+    lineHeight: 20,
   },
 });

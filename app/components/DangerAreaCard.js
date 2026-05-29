@@ -1,3 +1,4 @@
+import { BlurView } from "expo-blur";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 const redDangerIcon = require("../../assets/redDanger.png");
@@ -32,50 +33,82 @@ export default function DangerAreaCard({ report, onPress }) {
       disabled={!report}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.card,
-        pressed ? styles.cardPressed : null,
+        styles.cardFrame,
+        pressed && report ? styles.cardPressed : null,
       ]}
     >
-      <Image source={warningIcon} style={styles.warningIcon} />
+      <BlurView
+        experimentalBlurMethod="dimezisBlurView"
+        intensity={70}
+        tint="systemMaterial"
+        style={styles.card}
+      >
+        <View style={styles.iconBubble}>
+          <Image source={warningIcon} style={styles.warningIcon} />
+        </View>
 
-      <View style={styles.copy}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {subtitle}
-        </Text>
-        {report ? (
-          <Text style={styles.distance}>
-            {formatDistance(report.distanceMeters)}
+        <View style={styles.copy}>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle} numberOfLines={1}>
+            {subtitle}
           </Text>
-        ) : null}
-      </View>
+          {report ? (
+            <Text style={styles.distance}>
+              {formatDistance(report.distanceMeters)}
+            </Text>
+          ) : null}
+        </View>
 
-      <Image source={pointRightIcon} style={styles.chevronIcon} />
+        <View style={styles.chevronBubble}>
+          <Image source={pointRightIcon} style={styles.chevronIcon} />
+        </View>
+      </BlurView>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    height:90,
+  cardFrame: {
+    height: 90,
     marginHorizontal: 0,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 26,
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 14,
+    },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 14,
+  },
+  card: {
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    borderRadius: 26,
+    backgroundColor: "rgba(0, 0, 0, 0.28)",
     flexDirection: "row",
     alignItems: "center",
   },
   cardPressed: {
-    transform: [{ scale: 0.98 }],
+    transform: [{ scale: 0.985 }],
+  },
+  iconBubble: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: "center",
+    justifyContent: "center",
   },
   warningIcon: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     resizeMode: "contain",
   },
   copy: {
     flex: 1,
-    marginLeft: 18,
+    marginLeft: 14,
     justifyContent: "center",
   },
   title: {
@@ -93,14 +126,23 @@ const styles = StyleSheet.create({
   },
   distance: {
     marginTop: 1,
-    color: "#777777",
+    color: "#000000",
     fontSize: 12,
     fontWeight: "800",
     lineHeight: 16,
   },
+  chevronBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   chevronIcon: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     resizeMode: "contain",
+    tintColor: "#000000",
+    opacity: 0.82,
   },
 });
