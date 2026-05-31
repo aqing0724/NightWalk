@@ -10,6 +10,16 @@ export default {
             "Allow NightWalk to use your location to center the map.",
         },
       ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Allow NightWalk to access your photos for incident reports.",
+          cameraPermission:
+            "Allow NightWalk to use your camera for incident reports.",
+          microphonePermission: false,
+        },
+      ],
     ],
     name: "nightwalk",
     slug: "nightwalk",

@@ -10,14 +10,17 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getDownloadURL, ref } from "firebase/storage";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { colors, fontSizes } from "./constants/theme";
 
 const theftIcon = require("../assets/Theft.png");
@@ -37,6 +40,7 @@ const reportRegion = {
 };
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const maxPhotoCount = 5;
 
 const dangerTypes = [
   { id: "theft", label: "偷竊", icon: theftIcon },
@@ -89,11 +93,129 @@ async function geocodeAddress(searchText) {
   return null;
 }
 
+function formatCurrentAddress(address) {
+  if (address.formattedAddress) {
+    return address.formattedAddress;
+  }
+
+  return [
+    address.country,
+    address.region,
+    address.city,
+    address.district,
+    address.street,
+    address.streetNumber,
+    address.name,
+  ]
+    .filter((part, index, parts) => part && parts.indexOf(part) === index)
+    .join("");
+}
+
+async function uploadImageAsync(imageUri) {
+  const user = auth.currentUser;
+  const userId = user?.uid || "anonymous";
+  const imagePath = `reports/${userId}/${Date.now()}.jpg`;
+  const imageRef = ref(storage, imagePath);
+
+  try {
+    if (!user) {
+      throw new Error("auth-required");
+    }
+
+    const idToken = await user.getIdToken();
+    const bucket = storage.app.options.storageBucket;
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+
+    if (!fileInfo.exists || typeof fileInfo.size !== "number") {
+      throw new Error("image-file-unavailable");
+    }
+
+    const createUploadUrl =
+      `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket)}/o` +
+      `?name=${encodeURIComponent(imagePath)}`;
+    const createUploadResult = await fetch(createUploadUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Firebase ${idToken}`,
+        "Content-Type": "application/json; charset=utf-8",
+        "X-Goog-Upload-Command": "start",
+        "X-Goog-Upload-Header-Content-Length": `${fileInfo.size}`,
+        "X-Goog-Upload-Header-Content-Type": "image/jpeg",
+        "X-Goog-Upload-Protocol": "resumable",
+      },
+      body: JSON.stringify({
+        name: imagePath,
+        bucket,
+        contentType: "image/jpeg",
+      }),
+    });
+    const resumableUploadUrl = createUploadResult.headers.get(
+      "X-Goog-Upload-URL"
+    );
+
+    if (!createUploadResult.ok || !resumableUploadUrl) {
+      const uploadError = new Error(
+        "Firebase Storage could not start the upload."
+      );
+      uploadError.code = `storage/http-${createUploadResult.status}`;
+      uploadError.serverResponse = await createUploadResult.text();
+      throw uploadError;
+    }
+
+    const uploadResult = await FileSystem.uploadAsync(
+      resumableUploadUrl,
+      imageUri,
+      {
+        httpMethod: "POST",
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+        headers: {
+          Authorization: `Firebase ${idToken}`,
+          "Content-Type": "image/jpeg",
+          "X-Goog-Upload-Command": "upload, finalize",
+          "X-Goog-Upload-Offset": "0",
+        },
+      }
+    );
+
+    if (uploadResult.status < 200 || uploadResult.status >= 300) {
+      const uploadError = new Error("Firebase Storage upload failed.");
+      uploadError.code = `storage/http-${uploadResult.status}`;
+      uploadError.serverResponse = uploadResult.body;
+      throw uploadError;
+    }
+
+    return getDownloadURL(imageRef);
+  } catch (error) {
+    console.log("Storage error code:", error.code);
+    console.log("Storage error message:", error.message);
+    console.log("Storage server response:", error.serverResponse);
+    throw error;
+  }
+}
+
+function getUploadErrorMessage(error) {
+  switch (error.code) {
+    case "storage/unauthorized":
+      return "Firebase Storage 拒絕上傳。請確認 Storage Rules 已發布，且目前帳號已登入。";
+    case "storage/bucket-not-found":
+      return "找不到 Firebase Storage bucket。請確認 Firebase Console 已建立 Storage。";
+    case "storage/quota-exceeded":
+      return "Firebase Storage 額度已用完，請檢查 Firebase 方案與使用量。";
+    case "storage/retry-limit-exceeded":
+      return "上傳逾時，請確認網路連線後再試一次。";
+    case "storage/unknown":
+      return "Firebase Storage 回傳未知錯誤。請檢查終端機中的 serverResponse，並確認 Storage 已啟用 Blaze 方案。";
+    default:
+      return "目前無法送出回報，請稍後再試。";
+  }
+}
+
 export default function AddPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const hasSearchedLocationRef = useRef(false);
+  const hasEditedLocationTextRef = useRef(false);
   const isSearchingLocationRef = useRef(false);
   const [selectedLocation, setSelectedLocation] = useState(reportLocation);
   const [mapRegion, setMapRegion] = useState(reportRegion);
@@ -101,6 +223,8 @@ export default function AddPage() {
   const [locationText, setLocationText] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [isPickingImage, setIsPickingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFindingLocation, setIsFindingLocation] = useState(true);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
@@ -164,6 +288,31 @@ export default function AddPage() {
         });
         setMapRegion(userRegion);
         mapRef.current?.animateToRegion(userRegion, 500);
+
+        if (!hasEditedLocationTextRef.current) {
+          setLocationText("目前位置");
+        }
+
+        try {
+          const addresses = await Location.reverseGeocodeAsync({
+            latitude: userRegion.latitude,
+            longitude: userRegion.longitude,
+          });
+          const currentAddress = addresses[0]
+            ? formatCurrentAddress(addresses[0])
+            : "";
+
+          if (
+            isMounted &&
+            currentAddress &&
+            !hasEditedLocationTextRef.current
+          ) {
+            setLocationText(currentAddress);
+            setSelectedAddress(currentAddress);
+          }
+        } catch {
+          // Keep "目前位置" if a readable address is unavailable.
+        }
       } catch {
         // Keep the fallback location if current location is unavailable.
       } finally {
@@ -246,6 +395,93 @@ export default function AddPage() {
     );
   }
 
+  function addSelectedImages(images) {
+    setSelectedImages((currentImages) => [
+      ...currentImages,
+      ...images.slice(0, maxPhotoCount - currentImages.length),
+    ]);
+  }
+
+  async function pickImageFromCamera() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("需要相機權限", "請允許 NightWalk 使用相機後再試一次。");
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      addSelectedImages(result.assets);
+    }
+  }
+
+  async function pickImagesFromLibrary() {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert("需要照片權限", "請允許 NightWalk 讀取照片後再試一次。");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: maxPhotoCount - selectedImages.length,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      addSelectedImages(result.assets);
+    }
+  }
+
+  function handleAddPhoto() {
+    if (selectedImages.length >= maxPhotoCount) {
+      Alert.alert("已達上限", `每次回報最多可上傳 ${maxPhotoCount} 張照片。`);
+      return;
+    }
+
+    Alert.alert("新增圖片", "請選擇照片來源", [
+      {
+        text: "拍照",
+        onPress: () => handlePickImage(pickImageFromCamera),
+      },
+      {
+        text: "從圖庫選擇",
+        onPress: () => handlePickImage(pickImagesFromLibrary),
+      },
+      { text: "取消", style: "cancel" },
+    ]);
+  }
+
+  async function handlePickImage(pickImage) {
+    if (isPickingImage) {
+      return;
+    }
+
+    setIsPickingImage(true);
+
+    try {
+      await pickImage();
+    } catch {
+      Alert.alert("無法新增圖片", "目前無法讀取照片，請稍後再試。");
+    } finally {
+      setIsPickingImage(false);
+    }
+  }
+
+  function removeSelectedImage(indexToRemove) {
+    setSelectedImages((currentImages) =>
+      currentImages.filter((_, index) => index !== indexToRemove)
+    );
+  }
+
   async function handleSubmitReport() {
     if (isSubmitting) {
       return;
@@ -272,6 +508,12 @@ export default function AddPage() {
     setIsSubmitting(true);
 
     try {
+      const imageUrls = [];
+
+      for (const image of selectedImages) {
+        imageUrls.push(await uploadImageAsync(image.uri));
+      }
+
       await addDoc(collection(db, "reports"), {
         locationText: locationText.trim(),
         selectedAddress,
@@ -279,6 +521,8 @@ export default function AddPage() {
         types: selectedTypes,
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
+        imageUrl: imageUrls[0] || "",
+        imageUrls,
         credibleCount: 0,
         notCredibleCount: 0,
         userId: user.uid,
@@ -289,9 +533,15 @@ export default function AddPage() {
       setSelectedAddress("");
       setDescription("");
       setSelectedTypes([]);
+      setSelectedImages([]);
       Alert.alert("已送出", "謝謝你的回報。");
     } catch (error) {
-      Alert.alert("送出失敗", "目前無法送出回報，請稍後再試。");
+      console.error("Failed to submit report:", {
+        code: error.code,
+        message: error.message,
+        serverResponse: error.serverResponse || error.customData?.serverResponse,
+      });
+      Alert.alert("送出失敗", getUploadErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -358,22 +608,7 @@ export default function AddPage() {
                   latitude: selectedLocation.latitude,
                   longitude: selectedLocation.longitude,
                 }}
-                draggable
                 pinColor={colors.red}
-                onDragEnd={(event) => {
-                  const nextLocation = event.nativeEvent.coordinate;
-                  const nextRegion = {
-                    latitude: nextLocation.latitude,
-                    longitude: nextLocation.longitude,
-                    latitudeDelta: mapRegion.latitudeDelta,
-                    longitudeDelta: mapRegion.longitudeDelta,
-                  };
-
-                  setSelectedAddress("");
-                  setSelectedLocation(nextLocation);
-                  setMapRegion(nextRegion);
-                  mapRef.current?.animateToRegion(nextRegion, 300);
-                }}
               />
             </MapView>
           )}
@@ -392,7 +627,10 @@ export default function AddPage() {
             style={styles.searchInput}
             value={locationText}
             onBlur={handleSearchLocation}
-            onChangeText={setLocationText}
+            onChangeText={(text) => {
+              hasEditedLocationTextRef.current = true;
+              setLocationText(text);
+            }}
             onSubmitEditing={handleSearchLocation}
           />
           <Pressable
@@ -453,11 +691,44 @@ export default function AddPage() {
         <Pressable
           accessibilityLabel="Add photo"
           accessibilityRole="button"
-          style={styles.photoButton}
+          disabled={isPickingImage}
+          onPress={handleAddPhoto}
+          style={[
+            styles.photoButton,
+            isPickingImage ? styles.photoButtonDisabled : null,
+          ]}
         >
           <Image source={imageIcon} style={styles.photoIcon} />
-          <Text style={styles.photoButtonText}>新增圖片</Text>
+          <Text style={styles.photoButtonText}>
+            {isPickingImage ? "讀取中..." : "新增圖片"}
+          </Text>
         </Pressable>
+        {selectedImages.length ? (
+          <>
+            <ScrollView
+              contentContainerStyle={styles.photoPreviewRow}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {selectedImages.map((image, index) => (
+                <View key={`${image.uri}-${index}`} style={styles.photoPreview}>
+                  <Image source={{ uri: image.uri }} style={styles.photoImage} />
+                  <Pressable
+                    accessibilityLabel={`Remove photo ${index + 1}`}
+                    accessibilityRole="button"
+                    onPress={() => removeSelectedImage(index)}
+                    style={styles.removePhotoButton}
+                  >
+                    <Text style={styles.removePhotoText}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+            <Text style={styles.photoCount}>
+              已選擇 {selectedImages.length}/{maxPhotoCount} 張照片
+            </Text>
+          </>
+        ) : null}
 
         <Text style={styles.submitHint}>回報送出後不可編輯{"\n"}請再次確認您的資料是否無誤</Text>
         <Pressable
@@ -638,6 +909,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  photoButtonDisabled: {
+    opacity: 0.7,
+  },
   photoIcon: {
     width: 35,
     height: 35,
@@ -649,6 +923,43 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.titleSmall,
     fontWeight: "900",
     lineHeight: 24,
+  },
+  photoPreviewRow: {
+    paddingTop: 12,
+    paddingRight: 8,
+  },
+  photoPreview: {
+    width: 88,
+    height: 88,
+    marginRight: 10,
+  },
+  photoImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 8,
+  },
+  removePhotoButton: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.glassDark,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  removePhotoText: {
+    color: colors.white,
+    fontSize: fontSizes.title,
+    fontWeight: "900",
+    lineHeight: 22,
+  },
+  photoCount: {
+    marginTop: 7,
+    color: colors.special,
+    fontSize: fontSizes.labelSmall,
+    fontWeight: "800",
   },
   submitHint: {
     marginTop: 38,

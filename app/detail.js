@@ -222,6 +222,11 @@ export default function DetailPage() {
   const locationText =
     report?.locationText || report?.selectedAddress || "未提供位置描述";
   const typeList = report?.types?.length ? report.types : [];
+  const imageUrls = report?.imageUrls?.length
+    ? report.imageUrls
+    : report?.imageUrl
+      ? [report.imageUrl]
+      : [];
   const warningIcon = redDangerIcon;
 
   return (
@@ -284,6 +289,25 @@ export default function DetailPage() {
             {report?.description || "尚未提供情況說明。"}
           </Text>
         </View>
+
+        {imageUrls.length ? (
+          <ScrollView
+            contentContainerStyle={styles.reportImageRow}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {imageUrls.map((imageUrl, index) => (
+              <View key={`${imageUrl}-${index}`} style={styles.reportImageCard}>
+                <Image
+                  accessibilityLabel={`Report photo ${index + 1}`}
+                  resizeMode="cover"
+                  source={{ uri: imageUrl }}
+                  style={styles.reportImage}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
 
         <View style={styles.voteCard}>
           <View style={styles.voteTitleRow}>
@@ -580,6 +604,22 @@ const styles = StyleSheet.create({
   },
   voteTextActive: {
     color: colors.white,
+  },
+  reportImageRow: {
+    paddingTop: 18,
+    paddingRight: 8,
+  },
+  reportImageCard: {
+    width: 300,
+    height: 220,
+    marginRight: 10,
+    borderRadius: 9,
+    backgroundColor: colors.white,
+    overflow: "hidden",
+  },
+  reportImage: {
+    width: "100%",
+    height: "100%",
   },
   commentTitle: {
     marginTop: 28,
