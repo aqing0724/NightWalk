@@ -14,8 +14,10 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../../firebase";
 import { colors } from "../constants/theme";
 
-const homeIcon = require("../../assets/Home-black.png");
-const userIcon = require("../../assets/User-black.png");
+const homeIcon = require("../../assets/home.png");
+const homeActiveIcon = require("../../assets/home-on.png");
+const userIcon = require("../../assets/user.png");
+const userActiveIcon = require("../../assets/user-on.png");
 
 function getActiveIndex(pathname) {
   if (pathname === "/Add") {
@@ -124,7 +126,7 @@ export default function BottomNavigation() {
             accessibilityLabel: "Home",
             icon: (
               <Image
-                source={homeIcon}
+                source={activeIndex === 0 ? homeActiveIcon : homeIcon}
                 style={[
                   styles.navIcon,
                   activeIndex === 0 ? styles.navIconActive : null,
@@ -159,7 +161,7 @@ export default function BottomNavigation() {
             accessibilityLabel: "Profile",
             icon: (
               <Image
-                source={userIcon}
+                source={activeIndex === 2 ? userActiveIcon : userIcon}
                 style={[
                   styles.navIcon,
                   activeIndex === 2 ? styles.navIconActive : null,
