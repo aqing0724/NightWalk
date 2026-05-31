@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
+import { colors } from "./constants/theme";
 import { db } from "../firebase";
 
 const trackIcon = require("../assets/Track.png");
@@ -341,7 +342,7 @@ export default function Page() {
                 latitude: report.latitude,
                 longitude: report.longitude,
               }}
-              pinColor="#E94243"
+              pinColor={colors.red}
               title={report.locationText || "危險回報"}
               description={report.description}
               onPress={() => {
@@ -401,7 +402,7 @@ export default function Page() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000000",
+    backgroundColor: colors.black,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -419,7 +420,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },

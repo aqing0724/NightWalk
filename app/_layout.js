@@ -7,6 +7,7 @@ import {
 } from "react-native-safe-area-context";
 
 import BottomNavigation from "./components/BottomNavigation";
+import { colors } from "./constants/theme";
 
 export default function RootLayout() {
   return (
@@ -30,7 +31,7 @@ function AppFrame() {
       <StatusBar
         translucent
         barStyle="light-content"
-        backgroundColor="transparent"
+        backgroundColor={colors.transparent}
       />
       <View style={styles.screen}>
         <Stack screenOptions={{ headerShown: false, animation: "none" }} />
@@ -53,14 +54,14 @@ function AppFrame() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
   },
   navigation: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "transparent",
+    backgroundColor: colors.transparent,
     zIndex: 20,
     elevation: 20,
   },

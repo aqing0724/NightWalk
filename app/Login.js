@@ -23,6 +23,7 @@ import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../firebase";
+import { colors, fontSizes } from "./constants/theme";
 
 const mailIcon = require("../assets/mail.png");
 const lockIcon = require("../assets/Lock.png");
@@ -162,7 +163,10 @@ export default function LoginPage() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.screen}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F6F6" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={colors.background}
+      />
 
       <ScrollView
         contentContainerStyle={[
@@ -288,7 +292,7 @@ function FormField({ icon, label, ...inputProps }) {
         <Image source={icon} style={styles.inputIcon} />
         <TextInput
           autoCorrect={false}
-          placeholderTextColor="#B8B6B6"
+          placeholderTextColor={colors.special}
           style={styles.input}
           {...inputProps}
         />
@@ -300,7 +304,7 @@ function FormField({ icon, label, ...inputProps }) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
   },
   content: {
     flexGrow: 1,
@@ -311,7 +315,7 @@ const styles = StyleSheet.create({
     height: 30,
     alignSelf: "center",
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   tab: {
     flex: 1,
@@ -319,19 +323,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tabActive: {
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
   },
   tabInactive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   tabText: {
-    color: "#B8B6B6",
-    fontSize: 18,
+    color: colors.special,
+    fontSize: fontSizes.titleSmall,
     fontWeight: "900",
     lineHeight: 24,
   },
   tabTextActive: {
-    color: "#FFFFFF",
+    color: colors.white,
   },
   formHeader: {
     marginTop: 45,
@@ -343,15 +347,15 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   title: {
-    color: "#000000",
-    fontSize: 24,
+    color: colors.black,
+    fontSize: fontSizes.heading,
     fontWeight: "900",
     lineHeight: 31,
   },
   subtitle: {
     marginTop: 1,
-    color: "#B8B6B6",
-    fontSize: 16,
+    color: colors.special,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 21,
   },
@@ -362,8 +366,8 @@ const styles = StyleSheet.create({
     marginTop: 29,
   },
   fieldLabel: {
-    color: "#000000",
-    fontSize: 20,
+    color: colors.black,
+    fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
   },
@@ -371,9 +375,9 @@ const styles = StyleSheet.create({
     height: 52,
     marginTop: 9,
     borderWidth: 1,
-    borderColor: "#B8B6B6",
+    borderColor: colors.special,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -389,8 +393,8 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     paddingRight: 14,
-    color: "#000000",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 22,
   },
@@ -398,7 +402,7 @@ const styles = StyleSheet.create({
     height: 49,
     marginTop: 39,
     borderRadius: 8,
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -406,8 +410,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 20,
+    color: colors.white,
+    fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
   },

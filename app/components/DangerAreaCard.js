@@ -1,6 +1,8 @@
 import { BlurView } from "expo-blur";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { colors, fontSizes } from "../constants/theme";
+
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
 const pointRightIcon = require("../../assets/PointRight.png");
@@ -72,7 +74,7 @@ const styles = StyleSheet.create({
     height: 90,
     marginHorizontal: 0,
     borderRadius: 26,
-    shadowColor: "#000000",
+    shadowColor: colors.black,
     shadowOffset: {
       width: 0,
       height: 14,
@@ -87,7 +89,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     paddingHorizontal: 14,
     borderRadius: 26,
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    backgroundColor: colors.glassDark,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -112,22 +114,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    color: "#000000",
-    fontSize: 18,
+    color: colors.black,
+    fontSize: fontSizes.titleSmall,
     fontWeight: "800",
     lineHeight: 24,
   },
   subtitle: {
     marginTop: 2,
-    color: "#000000",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "700",
     lineHeight: 22,
   },
   distance: {
     marginTop: 1,
-    color: "#000000",
-    fontSize: 12,
+    color: colors.black,
+    fontSize: fontSizes.small,
     fontWeight: "800",
     lineHeight: 16,
   },
@@ -142,7 +144,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     resizeMode: "contain",
-    tintColor: "#000000",
+    tintColor: colors.black,
     opacity: 0.82,
   },
 });

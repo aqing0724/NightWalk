@@ -15,6 +15,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../../firebase";
+import { colors, fontSizes } from "../constants/theme";
 import { voteOnReport } from "../../services/reportVoting";
 
 const redDangerIcon = require("../../assets/redDanger.png");
@@ -299,7 +300,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
+    backgroundColor: colors.transparent,
   },
   sheet: {
     width: "100%",
@@ -308,14 +309,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     overflow: "hidden",
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    backgroundColor: colors.glassDark,
   },
   handle: {
     alignSelf: "center",
     width: 36,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.42)",
+    backgroundColor: colors.glassWhiteHandle,
   },
   header: {
     marginTop: 22,
@@ -329,8 +330,8 @@ const styles = StyleSheet.create({
   },
   title: {
     marginLeft: 12,
-    color: "#000000",
-    fontSize: 24,
+    color: colors.black,
+    fontSize: fontSizes.heading,
     fontWeight: "900",
     lineHeight: 30,
   },
@@ -344,8 +345,8 @@ const styles = StyleSheet.create({
   metaText: {
     flex: 1,
     marginLeft: 9,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "700",
     lineHeight: 20,
   },
@@ -353,11 +354,11 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginTop: 18,
     marginBottom: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: colors.glassWhiteDivider,
   },
   sectionTitle: {
-    color: "#000000",
-    fontSize: 17,
+    color: colors.black,
+    fontSize: fontSizes.subtitle,
     fontWeight: "900",
     lineHeight: 23,
   },
@@ -368,14 +369,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: colors.glassWhiteSubtle,
     flexDirection: "row",
     alignItems: "center",
   },
   typeText: {
     marginLeft: 8,
-    color: "#000000",
-    fontSize: 13,
+    color: colors.black,
+    fontSize: fontSizes.labelSmall,
     fontWeight: "800",
     lineHeight: 18,
   },
@@ -387,8 +388,8 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: 10,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "600",
     lineHeight: 20,
   },
@@ -398,8 +399,8 @@ const styles = StyleSheet.create({
   },
   voteHint: {
     marginLeft: 8,
-    color: "#000000",
-    fontSize: 11,
+    color: colors.black,
+    fontSize: fontSizes.footnote,
     fontWeight: "700",
     lineHeight: 15,
   },
@@ -412,57 +413,57 @@ const styles = StyleSheet.create({
     width: "47%",
     height: 34,
     borderRadius: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: colors.glassWhiteSubtle,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
   },
   voteText: {
     marginLeft: 8,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
     lineHeight: 18,
   },
   voteTextActive: {
-    color: "#000000",
+    color: colors.black,
   },
   voteIconActive: {
-    tintColor: "#000000",
+    tintColor: colors.black,
   },
   metaIcon: {
     width: 22,
     height: 22,
     resizeMode: "contain",
-    tintColor: "#000000",
+    tintColor: colors.black,
     opacity: 1,
   },
   typeIcon: {
     width: 20,
     height: 20,
     resizeMode: "contain",
-    tintColor: "#000000",
+    tintColor: colors.black,
   },
   voteIcon: {
     width: 21,
     height: 21,
     resizeMode: "contain",
-    tintColor: "#000000",
+    tintColor: colors.black,
   },
   fullEventButton: {
     height: 40,
     marginTop: 16,
     borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: colors.glassWhiteSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   fullEventText: {
-    color: "#A6BAAE",
-    fontSize: 15,
+    color: colors.special,
+    fontSize: fontSizes.body,
     fontWeight: "900",
     lineHeight: 20,
   },

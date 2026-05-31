@@ -24,6 +24,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../firebase";
+import { colors, fontSizes } from "./constants/theme";
 import { voteOnReport } from "../services/reportVoting";
 
 const redDangerIcon = require("../assets/redDanger.png");
@@ -225,7 +226,10 @@ export default function DetailPage() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F6F6" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={colors.background}
+      />
 
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 18) }]}>
         <Pressable
@@ -379,7 +383,7 @@ export default function DetailPage() {
               }
             }}
             placeholder={currentUser ? "發表你的評論..." : "登入後才能發表評論"}
-            placeholderTextColor="#9A9A9A"
+            placeholderTextColor={colors.special}
             style={styles.commentInput}
             value={message}
             onChangeText={setMessage}
@@ -406,12 +410,12 @@ export default function DetailPage() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
   },
   header: {
     height: 108,
     paddingHorizontal: 20,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -429,8 +433,8 @@ const styles = StyleSheet.create({
     transform: [{ rotate: "180deg" }],
   },
   headerTitle: {
-    color: "#000000",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 31,
   },
@@ -446,7 +450,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 17,
     paddingBottom: 22,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   reportHeader: {
     flexDirection: "row",
@@ -463,8 +467,8 @@ const styles = StyleSheet.create({
     marginLeft: 17,
   },
   reportTitle: {
-    color: "#000000",
-    fontSize: 17,
+    color: colors.black,
+    fontSize: fontSizes.subtitle,
     fontWeight: "900",
     lineHeight: 22,
   },
@@ -481,8 +485,8 @@ const styles = StyleSheet.create({
   locationText: {
     flex: 1,
     marginLeft: 6,
-    color: "#7B7B7B",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
     lineHeight: 19,
   },
@@ -497,20 +501,20 @@ const styles = StyleSheet.create({
     marginRight: 16,
     paddingHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: "#F4F4F4",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   tagText: {
-    color: "#000000",
-    fontSize: 13,
+    color: colors.black,
+    fontSize: fontSizes.labelSmall,
     fontWeight: "900",
     lineHeight: 17,
   },
   description: {
     marginTop: 16,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
     lineHeight: 25,
   },
@@ -521,23 +525,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingBottom: 10,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   voteTitleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
   },
   sectionTitle: {
-    color: "#000000",
-    fontSize: 19,
+    color: colors.black,
+    fontSize: fontSizes.titleMedium,
     fontWeight: "900",
     lineHeight: 25,
   },
   voteHint: {
     marginLeft: 1,
     marginBottom: 3,
-    color: "#B9B9B9",
-    fontSize: 10,
+    color: colors.special,
+    fontSize: fontSizes.caption,
     fontWeight: "900",
     lineHeight: 13,
   },
@@ -551,13 +555,13 @@ const styles = StyleSheet.create({
     width: "48%",
     height: 30,
     borderRadius: 9,
-    backgroundColor: "#F7F7F7",
+    backgroundColor: colors.background,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
   },
   voteIcon: {
     width: 22,
@@ -565,23 +569,23 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   voteIconActive: {
-    tintColor: "#FFFFFF",
+    tintColor: colors.white,
   },
   voteText: {
     marginLeft: 9,
-    color: "#000000",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 21,
   },
   voteTextActive: {
-    color: "#FFFFFF",
+    color: colors.white,
   },
   commentTitle: {
     marginTop: 28,
     marginLeft: 4,
-    color: "#000000",
-    fontSize: 20,
+    color: colors.black,
+    fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
   },
@@ -595,7 +599,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 25,
     paddingBottom: 12,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   commentHeader: {
     flexDirection: "row",
@@ -608,16 +612,16 @@ const styles = StyleSheet.create({
   },
   commentName: {
     marginLeft: 7,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "900",
     lineHeight: 18,
   },
   commentMessage: {
     marginTop: 7,
     marginLeft: 32,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
     lineHeight: 19,
   },
@@ -628,13 +632,13 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingTop: 8,
     paddingHorizontal: 20,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
   },
   inputCard: {
     height: 57,
     paddingHorizontal: 25,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -642,14 +646,14 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     resizeMode: "contain",
-    tintColor: "#8E8E8E",
+    tintColor: colors.special,
   },
   commentInput: {
     flex: 1,
     height: "100%",
     marginLeft: 10,
-    color: "#000000",
-    fontSize: 14,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
   },
   sendButton: {

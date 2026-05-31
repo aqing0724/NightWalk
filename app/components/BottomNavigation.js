@@ -12,6 +12,7 @@ import { usePathname, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../../firebase";
+import { colors } from "../constants/theme";
 
 const homeIcon = require("../../assets/Home-black.png");
 const userIcon = require("../../assets/User-black.png");
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 64,
     borderRadius: 32,
-    shadowColor: "#000000",
+    shadowColor: colors.black,
     shadowOffset: {
       width: 0,
       height: 12,
@@ -198,10 +199,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 32,
     borderWidth: 0,
-    borderColor: "rgba(255, 255, 255, 0.28)",
+    borderColor: colors.glassWhiteBorder,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.28)",
+    backgroundColor: colors.glassDark,
   },
   activePill: {
     position: "absolute",
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
     bottom: 5,
     left: 4,
     borderRadius: 27,
-    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    backgroundColor: colors.glassWhiteSoft,
   },
   navItem: {
     flex: 1,
@@ -227,11 +228,11 @@ const styles = StyleSheet.create({
     height: 26,
     opacity: 0.82,
     resizeMode: "contain",
-    tintColor: "#FFFFFF",
+    tintColor: colors.white,
   },
   navIconActive: {
     opacity: 1,
-    tintColor: "#A6BAAE",
+    tintColor: colors.special,
   },
   addIcon: {
     width: 26,
@@ -244,16 +245,16 @@ const styles = StyleSheet.create({
     width: 3,
     height: 26,
     borderRadius: 1.5,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   addHorizontal: {
     position: "absolute",
     width: 26,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
   },
   addStrokeActive: {
-    backgroundColor: "#A6BAAE",
+    backgroundColor: colors.special,
   },
 });

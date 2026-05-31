@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../firebase";
+import { colors, fontSizes } from "./constants/theme";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function AccountPage() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
       <Text style={styles.title}>成功登入</Text>
     </View>
   );
@@ -36,13 +37,13 @@ export default function AccountPage() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
-    color: "#000000",
-    fontSize: 24,
+    color: colors.black,
+    fontSize: fontSizes.heading,
     fontWeight: "900",
     lineHeight: 31,
   },

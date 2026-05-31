@@ -18,6 +18,7 @@ import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db } from "../firebase";
+import { colors, fontSizes } from "./constants/theme";
 
 const theftIcon = require("../assets/Theft.png");
 const harassIcon = require("../assets/Harass.png");
@@ -298,7 +299,10 @@ export default function AddPage() {
 
   return (
     <View style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6F6F6" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={colors.background}
+      />
 
       <View
         style={[
@@ -355,7 +359,7 @@ export default function AddPage() {
                   longitude: selectedLocation.longitude,
                 }}
                 draggable
-                pinColor="#E94243"
+                pinColor={colors.red}
                 onDragEnd={(event) => {
                   const nextLocation = event.nativeEvent.coordinate;
                   const nextRegion = {
@@ -383,7 +387,7 @@ export default function AddPage() {
             blurOnSubmit
             enablesReturnKeyAutomatically
             placeholder="搜尋地點，例如：捷運科技大樓站"
-            placeholderTextColor="#B8B6B6"
+            placeholderTextColor={colors.special}
             returnKeyType="search"
             style={styles.searchInput}
             value={locationText}
@@ -438,7 +442,7 @@ export default function AddPage() {
           accessibilityLabel="Describe situation"
           multiline
           placeholder="請簡單描述您看到的情況..."
-          placeholderTextColor="#B8B6B6"
+          placeholderTextColor={colors.special}
           style={styles.largeInput}
           textAlignVertical="top"
           value={description}
@@ -479,7 +483,7 @@ export default function AddPage() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: 20,
@@ -490,15 +494,15 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 20,
-    backgroundColor: "#F6F6F6",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
     elevation: 10,
   },
   title: {
-    color: "#000000",
-    fontSize: 24,
+    color: colors.black,
+    fontSize: fontSizes.heading,
     fontWeight: "900",
     lineHeight: 31,
     textAlign: "center",
@@ -507,7 +511,7 @@ const styles = StyleSheet.create({
     height: 184,
     marginTop: 8,
     borderRadius: 4,
-    backgroundColor: "#E9E9E9",
+    backgroundColor: colors.background,
     overflow: "hidden",
   },
   map: {
@@ -516,20 +520,20 @@ const styles = StyleSheet.create({
   },
   locationPlaceholder: {
     flex: 1,
-    backgroundColor: "#E9E9E9",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
   locationOverlayText: {
-    color: "#111111",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 22,
   },
   sectionTitle: {
     marginTop: 32,
-    color: "#000000",
-    fontSize: 20,
+    color: colors.black,
+    fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
   },
@@ -539,9 +543,9 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingHorizontal: 11,
     borderRadius: 9,
-    backgroundColor: "#FFFFFF",
-    color: "#000000",
-    fontSize: 14,
+    backgroundColor: colors.white,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "800",
     lineHeight: 20,
   },
@@ -549,7 +553,7 @@ const styles = StyleSheet.create({
     height: 50,
     marginTop: 10,
     borderRadius: 12,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     flexDirection: "row",
     alignItems: "center",
     overflow: "hidden",
@@ -558,15 +562,15 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     paddingHorizontal: 14,
-    color: "#000000",
-    fontSize: 15,
+    color: colors.black,
+    fontSize: fontSizes.body,
     fontWeight: "800",
   },
   searchButton: {
     height: "100%",
     minWidth: 68,
     paddingHorizontal: 14,
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -574,14 +578,14 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
   searchButtonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
+    color: colors.white,
+    fontSize: fontSizes.body,
     fontWeight: "900",
   },
   selectedAddress: {
     marginTop: 8,
-    color: "#6F786F",
-    fontSize: 13,
+    color: colors.special,
+    fontSize: fontSizes.labelSmall,
     fontWeight: "800",
     lineHeight: 18,
   },
@@ -594,15 +598,15 @@ const styles = StyleSheet.create({
     width: "31%",
     height: 89,
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: colors.white,
     borderRadius: 8,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },
   optionCardSelected: {
-    borderColor: "#AFC2B5",
-    backgroundColor: "#F4F8F5",
+    borderColor: colors.special,
+    backgroundColor: colors.background,
   },
   dangerTypeIcon: {
     width: 34,
@@ -612,16 +616,16 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     marginTop: 9,
-    color: "#000000",
-    fontSize: 18,
+    color: colors.black,
+    fontSize: fontSizes.titleSmall,
     fontWeight: "900",
     lineHeight: 24,
     textAlign: "center",
   },
   moreText: {
     marginTop: 8,
-    color: "#000000",
-    fontSize: 16,
+    color: colors.black,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 21,
   },
@@ -630,7 +634,7 @@ const styles = StyleSheet.create({
     height: 80,
     marginTop: 11,
     borderRadius: 8,
-    backgroundColor: "#C6C6C6",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -641,15 +645,15 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   photoButtonText: {
-    color: "#000000",
-    fontSize: 18,
+    color: colors.black,
+    fontSize: fontSizes.titleSmall,
     fontWeight: "900",
     lineHeight: 24,
   },
   submitHint: {
     marginTop: 38,
-    color: "#B8B6B6",
-    fontSize: 16,
+    color: colors.special,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
     lineHeight: 21,
     textAlign: "center",
@@ -658,7 +662,7 @@ const styles = StyleSheet.create({
     height: 43,
     marginTop: 13,
     borderRadius: 8,
-    backgroundColor: "#AFC2B5",
+    backgroundColor: colors.special,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -666,8 +670,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   submitButtonText: {
-    color: "#FFFFFF",
-    fontSize: 20,
+    color: colors.white,
+    fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
   },
