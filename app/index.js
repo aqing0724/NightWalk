@@ -25,8 +25,8 @@ const fallbackCenter = {
 };
 
 const cameraSettings = {
-  pitch: 60,
-  heading: 330,
+  pitch: 0,
+  heading: 0,
   zoom: 18,
 };
 
