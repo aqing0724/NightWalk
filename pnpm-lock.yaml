@@ -10,10 +10,10 @@ importers:
     dependencies:
       '@firebase/auth':
         specifier: ^1.13.1
-        version: 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))
+        version: 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))
       '@react-native-async-storage/async-storage':
-        specifier: ^3.1.0
-        version: 3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
+        specifier: ^2.2.0
+        version: 2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))
       '@react-native-google-signin/google-signin':
         specifier: ^16.1.2
         version: 16.1.2(expo@54.0.34)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
@@ -37,7 +37,7 @@ importers:
         version: 6.0.23(@expo/metro-runtime@6.1.2)(expo-constants@18.0.13)(expo-linking@8.0.12)(expo@54.0.34)(react-dom@19.1.0(react@19.1.0))(react-native-safe-area-context@5.6.2(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))(react-native-screens@4.16.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))(react-native-web@0.21.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
       firebase:
         specifier: ^12.13.0
-        version: 12.13.0(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))
+        version: 12.13.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -1227,11 +1227,10 @@ packages:
       '@types/react':
         optional: true
 
-  '@react-native-async-storage/async-storage@3.1.0':
-    resolution: {integrity: sha512-ENwbn3kj/dOapdR3GVgfX5x9f9/rxHnsqol1bUkt26lrv0aAq6UoXnTlv7y2dT7RH0AShh9B1+KAPDVjJXnk0w==}
+  '@react-native-async-storage/async-storage@2.2.0':
+    resolution: {integrity: sha512-gvRvjR5JAaUZF8tv2Kcq/Gbt3JHwbKFYfmb445rhOj6NUMx3qPLixmDx5pZAyb9at1bYvJ4/eTUipU5aki45xw==}
     peerDependencies:
-      react: '*'
-      react-native: '*'
+      react-native: ^0.0.0-0 || >=0.65 <1.0
 
   '@react-native-google-signin/google-signin@16.1.2':
     resolution: {integrity: sha512-1hf4pRmpnS5t0dHtqU72Q1FmWzsCZR2Sm3uVQbbfMKeNPl5TKjpAsP6F8QTZ9L+Q6Cnn9tL9BXpDCb1nyutdCQ==}
@@ -2172,9 +2171,6 @@ packages:
   idb@7.1.1:
     resolution: {integrity: sha512-gchesWBzyvGHRO9W8tzUWFDycow5gwjvFKfyV9FF32Y7F50yZMp7mP+T2mJIWFx49zicqyC4uefHM17o6xKIVQ==}
 
-  idb@8.0.3:
-    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
-
   ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
 
@@ -2226,6 +2222,10 @@ packages:
   is-number@7.0.0:
     resolution: {integrity: sha512-41Cifkg6e8TylSpdtTpeLVMqvSBEVzTttHvERD741+pnZ8ANv0004MRL43QKPDlK9cGvNp6NZWZUBlbGXYxxng==}
     engines: {node: '>=0.12.0'}
+
+  is-plain-obj@2.1.0:
+    resolution: {integrity: sha512-YWnfyRwxL/+SsrWYfOpUtz5b3YD+nyfkHvjbcanzk8zgyO4ASD67uVMRt8k5bM4lLMDnXfriRhOpemw+NfT1eA==}
+    engines: {node: '>=8'}
 
   is-wsl@2.2.0:
     resolution: {integrity: sha512-fKzAra0rGJUUBwGBgNkHZuToZcn+TtXHpeCgmkMJMMYx1sQDYaCSyjJBSCa2nH1DGm7s3n1oBnohoVTBaN7Lww==}
@@ -2442,6 +2442,10 @@ packages:
 
   memoize-one@6.0.0:
     resolution: {integrity: sha512-rkpe71W0N0c0Xz6QD0eJETuWAJGnJ9afsl1srmwPrI+yBCkge5EycXXbYRyvL29zZVUWQCY7InPRCv3GDXuZNw==}
+
+  merge-options@3.0.4:
+    resolution: {integrity: sha512-2Sug1+knBjkaMsMgf1ctR1Ujx+Ayku4EdJN4Z+C2+JzoeF7A3OZ9KM2GY0CpQS51NR61LTurMJrRKPhSs3ZRTQ==}
+    engines: {node: '>=10'}
 
   merge-stream@2.0.0:
     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
@@ -4478,10 +4482,10 @@ snapshots:
       idb: 7.1.1
       tslib: 2.8.1
 
-  '@firebase/auth-compat@0.6.6(@firebase/app-compat@0.5.12)(@firebase/app-types@0.9.5)(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))':
+  '@firebase/auth-compat@0.6.6(@firebase/app-compat@0.5.12)(@firebase/app-types@0.9.5)(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))':
     dependencies:
       '@firebase/app-compat': 0.5.12
-      '@firebase/auth': 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))
+      '@firebase/auth': 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))
       '@firebase/auth-types': 0.13.1(@firebase/app-types@0.9.5)(@firebase/util@1.15.1)
       '@firebase/component': 0.7.3
       '@firebase/util': 1.15.1
@@ -4498,7 +4502,7 @@ snapshots:
       '@firebase/app-types': 0.9.5
       '@firebase/util': 1.15.1
 
-  '@firebase/auth@1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))':
+  '@firebase/auth@1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))':
     dependencies:
       '@firebase/app': 0.14.12
       '@firebase/component': 0.7.3
@@ -4506,7 +4510,7 @@ snapshots:
       '@firebase/util': 1.15.1
       tslib: 2.8.1
     optionalDependencies:
-      '@react-native-async-storage/async-storage': 3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)
+      '@react-native-async-storage/async-storage': 2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))
 
   '@firebase/component@0.7.3':
     dependencies:
@@ -5001,10 +5005,9 @@ snapshots:
     dependencies:
       react: 19.1.0
 
-  '@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)':
+  '@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))':
     dependencies:
-      idb: 8.0.3
-      react: 19.1.0
+      merge-options: 3.0.4
       react-native: 0.81.4(@babel/core@7.29.0)(react@19.1.0)
 
   '@react-native-google-signin/google-signin@16.1.2(expo@54.0.34)(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)':
@@ -5981,7 +5984,7 @@ snapshots:
       locate-path: 5.0.0
       path-exists: 4.0.0
 
-  firebase@12.13.0(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0)):
+  firebase@12.13.0(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))):
     dependencies:
       '@firebase/ai': 2.12.0(@firebase/app-types@0.9.5)(@firebase/app@0.14.12)
       '@firebase/analytics': 0.10.22(@firebase/app@0.14.12)
@@ -5991,8 +5994,8 @@ snapshots:
       '@firebase/app-check-compat': 0.4.3(@firebase/app-compat@0.5.12)(@firebase/app@0.14.12)
       '@firebase/app-compat': 0.5.12
       '@firebase/app-types': 0.9.5
-      '@firebase/auth': 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))
-      '@firebase/auth-compat': 0.6.6(@firebase/app-compat@0.5.12)(@firebase/app-types@0.9.5)(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@3.1.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0))(react@19.1.0))
+      '@firebase/auth': 1.13.1(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))
+      '@firebase/auth-compat': 0.6.6(@firebase/app-compat@0.5.12)(@firebase/app-types@0.9.5)(@firebase/app@0.14.12)(@react-native-async-storage/async-storage@2.2.0(react-native@0.81.4(@babel/core@7.29.0)(react@19.1.0)))
       '@firebase/data-connect': 0.7.0(@firebase/app@0.14.12)
       '@firebase/database': 1.1.3
       '@firebase/database-compat': 2.1.4
@@ -6107,8 +6110,6 @@ snapshots:
 
   idb@7.1.1: {}
 
-  idb@8.0.3: {}
-
   ieee754@1.2.1: {}
 
   ignore@5.3.2: {}
@@ -6147,6 +6148,8 @@ snapshots:
   is-fullwidth-code-point@3.0.0: {}
 
   is-number@7.0.0: {}
+
+  is-plain-obj@2.1.0: {}
 
   is-wsl@2.2.0:
     dependencies:
@@ -6358,6 +6361,10 @@ snapshots:
   memoize-one@5.2.1: {}
 
   memoize-one@6.0.0: {}
+
+  merge-options@3.0.4:
+    dependencies:
+      is-plain-obj: 2.1.0
 
   merge-stream@2.0.0: {}
 
