@@ -1,4 +1,3 @@
-import { BlurView } from "expo-blur";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { colors, fontSizes } from "../constants/theme";
@@ -39,12 +38,7 @@ export default function DangerAreaCard({ report, onPress }) {
         pressed && report ? styles.cardPressed : null,
       ]}
     >
-      <BlurView
-        experimentalBlurMethod="dimezisBlurView"
-        intensity={70}
-        tint="systemMaterial"
-        style={styles.card}
-      >
+      <View style={styles.card}>
         <View style={styles.iconBubble}>
           <Image source={warningIcon} style={styles.warningIcon} />
         </View>
@@ -64,7 +58,7 @@ export default function DangerAreaCard({ report, onPress }) {
         <View style={styles.chevronBubble}>
           <Image source={pointRightIcon} style={styles.chevronIcon} />
         </View>
-      </BlurView>
+      </View>
     </Pressable>
   );
 }
@@ -89,7 +83,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     paddingHorizontal: 14,
     borderRadius: 26,
-    backgroundColor: colors.glassDark,
+    backgroundColor: colors.white,
     flexDirection: "row",
     alignItems: "center",
   },

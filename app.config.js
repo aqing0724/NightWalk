@@ -23,6 +23,10 @@ export default {
     ],
     name: "nightwalk",
     slug: "nightwalk",
+    androidNavigationBar: {
+      backgroundColor: "#F7F7F7",
+      barStyle: "dark-content",
+    },
     ios: {
       config: {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY,

@@ -4,13 +4,12 @@ export const colors = {
   white: "#FFFFFF",
   background: "#F7F7F7",
   special: "#A6BAAE",
+  specialDark: "#647D70",
+  specialSoft: "#E5ECE8",
   red: "#FF8080",
-  glassDark: "rgba(0, 0, 0, 0.28)",
-  glassWhiteSubtle: "rgba(255, 255, 255, 0.12)",
-  glassWhiteSoft: "rgba(255, 255, 255, 0.16)",
-  glassWhiteDivider: "rgba(255, 255, 255, 0.18)",
-  glassWhiteBorder: "rgba(255, 255, 255, 0.28)",
-  glassWhiteHandle: "rgba(255, 255, 255, 0.42)",
+  surfaceMuted: "#F0F0F0",
+  divider: "#E0E0E0",
+  handle: "#B8B8B8",
 };
 
 export const fontSizes = {

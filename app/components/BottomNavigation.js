@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { BlurView } from "expo-blur";
 import {
   Alert,
   Animated,
@@ -103,12 +102,7 @@ export default function BottomNavigation() {
         onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
         style={styles.navFrame}
       >
-        <BlurView
-          experimentalBlurMethod="dimezisBlurView"
-          intensity={70}
-          tint="systemMaterial"
-          style={styles.navBar}
-        >
+        <View style={styles.navBar}>
           {barWidth ? (
             <Animated.View
               pointerEvents="none"
@@ -170,7 +164,7 @@ export default function BottomNavigation() {
             ),
             onPress: handleProfilePress,
           })}
-        </BlurView>
+        </View>
       </View>
     </View>
   );
@@ -201,10 +195,10 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderRadius: 32,
     borderWidth: 0,
-    borderColor: colors.glassWhiteBorder,
+    borderColor: colors.divider,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.glassDark,
+    backgroundColor: colors.white,
   },
   activePill: {
     position: "absolute",
@@ -212,7 +206,7 @@ const styles = StyleSheet.create({
     bottom: 5,
     left: 4,
     borderRadius: 27,
-    backgroundColor: colors.glassWhiteSoft,
+    backgroundColor: colors.specialSoft,
   },
   navItem: {
     flex: 1,
@@ -230,11 +224,11 @@ const styles = StyleSheet.create({
     height: 26,
     opacity: 0.82,
     resizeMode: "contain",
-    tintColor: colors.white,
+    tintColor: colors.black,
   },
   navIconActive: {
     opacity: 1,
-    tintColor: colors.special,
+    tintColor: colors.specialDark,
   },
   addIcon: {
     width: 26,
@@ -247,16 +241,16 @@ const styles = StyleSheet.create({
     width: 3,
     height: 26,
     borderRadius: 1.5,
-    backgroundColor: colors.white,
+    backgroundColor: colors.black,
   },
   addHorizontal: {
     position: "absolute",
     width: 26,
     height: 3,
     borderRadius: 1.5,
-    backgroundColor: colors.white,
+    backgroundColor: colors.black,
   },
   addStrokeActive: {
-    backgroundColor: colors.special,
+    backgroundColor: colors.specialDark,
   },
 });

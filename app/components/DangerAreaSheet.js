@@ -1,14 +1,16 @@
-import { BlurView } from "expo-blur";
 import {
   Alert,
+  Animated,
+  Dimensions,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -39,6 +41,10 @@ const typeIcons = {
   track: trackIcon,
 };
 
+const dismissDistance = Dimensions.get("window").height;
+const dismissThreshold = 120;
+const dismissVelocity = 1;
+
 export default function DangerAreaSheet({
   visible,
   report,
@@ -50,6 +56,45 @@ export default function DangerAreaSheet({
   const [isVoting, setIsVoting] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const dragY = useRef(new Animated.Value(0)).current;
+  const onCloseRef = useRef(onClose);
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        gestureState.dy > 6 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onPanResponderMove: (_, gestureState) => {
+        dragY.setValue(Math.max(0, gestureState.dy));
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const shouldClose =
+          gestureState.dy > dismissThreshold ||
+          gestureState.vy > dismissVelocity;
+
+        if (shouldClose) {
+          Animated.timing(dragY, {
+            toValue: dismissDistance,
+            duration: 220,
+            useNativeDriver: true,
+          }).start(() => {
+            onCloseRef.current?.();
+          });
+          return;
+        }
+
+        Animated.spring(dragY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        Animated.spring(dragY, {
+          toValue: 0,
+          useNativeDriver: true,
+        }).start();
+      },
+    })
+  ).current;
   const credibleCount = report?.credibleCount ?? 0;
   const notCredibleCount = report?.notCredibleCount ?? 0;
   const voteCount = credibleCount + notCredibleCount;
@@ -57,6 +102,16 @@ export default function DangerAreaSheet({
     report?.locationText || report?.selectedAddress || "危險回報位置";
   const typeList = report?.types?.length ? report.types : [];
   const warningIcon = report ? redDangerIcon : faceIcon;
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (visible) {
+      dragY.setValue(0);
+    }
+  }, [dragY, visible]);
 
   useEffect(() => {
     setSelectedVote(null);
@@ -161,16 +216,26 @@ export default function DangerAreaSheet({
           style={styles.backdrop}
         />
 
-        <BlurView
-          experimentalBlurMethod="dimezisBlurView"
-          intensity={70}
-          tint="systemMaterial"
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: Math.max(insets.bottom, 16),
+              transform: [{ translateY: dragY }],
+            },
+          ]}
           onLayout={(event) => {
             onSheetLayout?.(event.nativeEvent.layout.height);
           }}
         >
-          <View style={styles.handle} />
+          <View
+            accessibilityLabel="Drag down to close danger area details"
+            accessibilityRole="adjustable"
+            {...panResponder.panHandlers}
+            style={styles.handleArea}
+          >
+            <View style={styles.handle} />
+          </View>
 
           <View style={styles.header}>
             <Image source={warningIcon} style={styles.warningIcon} />
@@ -287,7 +352,7 @@ export default function DangerAreaSheet({
           >
             <Text style={styles.fullEventText}>點擊查看完整事件</Text>
           </Pressable>
-        </BlurView>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -309,14 +374,18 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     overflow: "hidden",
-    backgroundColor: colors.glassDark,
+    backgroundColor: colors.white,
+  },
+  handleArea: {
+    height: 22,
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   handle: {
-    alignSelf: "center",
     width: 36,
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.glassWhiteHandle,
+    backgroundColor: colors.handle,
   },
   header: {
     marginTop: 22,
@@ -354,7 +423,7 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     marginTop: 18,
     marginBottom: 16,
-    backgroundColor: colors.glassWhiteDivider,
+    backgroundColor: colors.divider,
   },
   sectionTitle: {
     color: colors.black,
@@ -369,7 +438,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: colors.glassWhiteSubtle,
+    backgroundColor: colors.surfaceMuted,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -413,13 +482,13 @@ const styles = StyleSheet.create({
     width: "47%",
     height: 34,
     borderRadius: 10,
-    backgroundColor: colors.glassWhiteSubtle,
+    backgroundColor: colors.surfaceMuted,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: colors.special,
+    backgroundColor: colors.specialSoft,
   },
   voteText: {
     marginLeft: 8,
@@ -457,12 +526,12 @@ const styles = StyleSheet.create({
     height: 40,
     marginTop: 16,
     borderRadius: 8,
-    backgroundColor: colors.glassWhiteSubtle,
+    backgroundColor: colors.surfaceMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   fullEventText: {
-    color: colors.special,
+    color: colors.specialDark,
     fontSize: fontSizes.body,
     fontWeight: "900",
     lineHeight: 20,
