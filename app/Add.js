@@ -7,6 +7,7 @@ import {
   Image,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -21,7 +22,7 @@ import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
-import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db, storage } from "../firebase";
@@ -31,6 +32,7 @@ const theftIcon = require("../assets/Theft.png");
 const harassIcon = require("../assets/Harass.png");
 const trackIcon = require("../assets/Track.png");
 const imageIcon = require("../assets/image.png");
+const mapPinIcon = require("../assets/marker.png");
 
 const reportLocation = {
   latitude: 24.988,
@@ -236,9 +238,11 @@ export default function AddPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionStage, setSubmissionStage] = useState("idle");
   const [isFindingLocation, setIsFindingLocation] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+  const [locationRefreshCount, setLocationRefreshCount] = useState(0);
 
   useEffect(() => {
     if (submissionStage === "submitting") {
@@ -296,6 +300,7 @@ export default function AddPage() {
 
       if (!user) {
         setIsFindingLocation(false);
+        setIsRefreshing(false);
         Alert.alert("請先登入", "登入後才能新增危險地點回報。", [
           { text: "前往登入", onPress: () => router.replace("/Login") },
         ]);
@@ -376,6 +381,7 @@ export default function AddPage() {
       } finally {
         if (isMounted) {
           setIsFindingLocation(false);
+          setIsRefreshing(false);
         }
       }
     }
@@ -385,7 +391,7 @@ export default function AddPage() {
     return () => {
       isMounted = false;
     };
-  }, [authChecked, currentUser]);
+  }, [authChecked, currentUser, locationRefreshCount]);
 
   async function handleSearchLocation() {
     const searchText = locationText.trim();
@@ -443,6 +449,43 @@ export default function AddPage() {
       isSearchingLocationRef.current = false;
       setIsSearchingLocation(false);
     }
+  }
+
+  function handleLocationInputFocus() {
+    if (!hasEditedLocationTextRef.current) {
+      setLocationText("");
+    }
+  }
+
+  function handleLocationInputBlur() {
+    if (!locationText.trim()) {
+      hasEditedLocationTextRef.current = false;
+      setLocationText(selectedAddress || "目前位置");
+      return;
+    }
+
+    handleSearchLocation();
+  }
+
+  function handleRefresh() {
+    if (isSubmitting) {
+      return;
+    }
+
+    hasSearchedLocationRef.current = false;
+    hasEditedLocationTextRef.current = false;
+    isSearchingLocationRef.current = false;
+    setSelectedLocation(reportLocation);
+    setMapRegion(reportRegion);
+    setSelectedAddress("");
+    setLocationText("");
+    setDescription("");
+    setSelectedTypes([]);
+    setSelectedImages([]);
+    setIsSearchingLocation(false);
+    setIsFindingLocation(true);
+    setIsRefreshing(true);
+    setLocationRefreshCount((currentCount) => currentCount + 1);
   }
 
   function toggleDangerType(typeId) {
@@ -633,6 +676,13 @@ export default function AddPage() {
         ]}
       >
         <Text style={styles.title}>回報危險地點</Text>
+        {isRefreshing ? (
+          <ActivityIndicator
+            color={colors.specialDark}
+            size="small"
+            style={styles.refreshIndicator}
+          />
+        ) : null}
       </View>
 
       <ScrollView
@@ -643,6 +693,15 @@ export default function AddPage() {
             paddingBottom: Math.max(insets.bottom, 26) + 128,
           },
         ]}
+        refreshControl={
+          <RefreshControl
+            colors={[colors.specialDark]}
+            enabled={!isSubmitting}
+            onRefresh={handleRefresh}
+            refreshing={isRefreshing}
+            tintColor={colors.specialDark}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapCard}>
@@ -651,35 +710,32 @@ export default function AddPage() {
               <Text style={styles.locationOverlayText}>正在尋找定位...</Text>
             </View>
           ) : (
-            <MapView
-              ref={mapRef}
-              provider={PROVIDER_GOOGLE}
-              style={styles.map}
-              initialRegion={mapRegion}
-              region={mapRegion}
-              scrollEnabled
-              zoomEnabled
-              rotateEnabled
-              pitchEnabled
-              toolbarEnabled={false}
-              showsCompass={false}
-              showsMyLocationButton={false}
-              onRegionChangeComplete={(region) => {
-                setMapRegion(region);
-                setSelectedLocation({
-                  latitude: region.latitude,
-                  longitude: region.longitude,
-                });
-              }}
-            >
-              <Marker
-                coordinate={{
-                  latitude: selectedLocation.latitude,
-                  longitude: selectedLocation.longitude,
+            <>
+              <MapView
+                ref={mapRef}
+                provider={PROVIDER_GOOGLE}
+                style={styles.map}
+                initialRegion={mapRegion}
+                region={mapRegion}
+                scrollEnabled
+                zoomEnabled
+                rotateEnabled
+                pitchEnabled
+                toolbarEnabled={false}
+                showsCompass={false}
+                showsMyLocationButton={false}
+                onRegionChangeComplete={(region) => {
+                  setMapRegion(region);
+                  setSelectedLocation({
+                    latitude: region.latitude,
+                    longitude: region.longitude,
+                  });
                 }}
-                pinColor={colors.red}
               />
-            </MapView>
+              <View pointerEvents="none" style={styles.centerMarker}>
+                <Image source={mapPinIcon} style={styles.centerMarkerIcon} />
+              </View>
+            </>
           )}
         </View>
 
@@ -690,16 +746,15 @@ export default function AddPage() {
             autoCorrect={false}
             blurOnSubmit
             enablesReturnKeyAutomatically
-            placeholder="搜尋地點，例如：捷運科技大樓站"
-            placeholderTextColor={colors.special}
             returnKeyType="search"
             style={styles.searchInput}
             value={locationText}
-            onBlur={handleSearchLocation}
+            onBlur={handleLocationInputBlur}
             onChangeText={(text) => {
               hasEditedLocationTextRef.current = true;
               setLocationText(text);
             }}
+            onFocus={handleLocationInputFocus}
             onSubmitEditing={handleSearchLocation}
           />
           <Pressable
@@ -914,6 +969,10 @@ const styles = StyleSheet.create({
     lineHeight: 31,
     textAlign: "center",
   },
+  refreshIndicator: {
+    position: "absolute",
+    bottom: -24,
+  },
   mapCard: {
     height: 184,
     marginTop: 8,
@@ -924,6 +983,17 @@ const styles = StyleSheet.create({
   map: {
     width: "100%",
     height: "100%",
+  },
+  centerMarker: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -16 }, { translateY: -32 }],
+  },
+  centerMarkerIcon: {
+    width: 32,
+    height: 32,
+    resizeMode: "contain",
   },
   locationPlaceholder: {
     flex: 1,
