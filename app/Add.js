@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Animated,
+  Easing,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -217,6 +221,10 @@ export default function AddPage() {
   const hasSearchedLocationRef = useRef(false);
   const hasEditedLocationTextRef = useRef(false);
   const isSearchingLocationRef = useRef(false);
+  const pulseAnimation = useRef(new Animated.Value(0)).current;
+  const successScale = useRef(new Animated.Value(0.65)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
+  const successNavigationTimeoutRef = useRef(null);
   const [selectedLocation, setSelectedLocation] = useState(reportLocation);
   const [mapRegion, setMapRegion] = useState(reportRegion);
   const [selectedAddress, setSelectedAddress] = useState("");
@@ -226,10 +234,60 @@ export default function AddPage() {
   const [selectedImages, setSelectedImages] = useState([]);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionStage, setSubmissionStage] = useState("idle");
   const [isFindingLocation, setIsFindingLocation] = useState(true);
   const [isSearchingLocation, setIsSearchingLocation] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
+
+  useEffect(() => {
+    if (submissionStage === "submitting") {
+      pulseAnimation.setValue(0);
+      const animation = Animated.loop(
+        Animated.timing(pulseAnimation, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        })
+      );
+
+      animation.start();
+      return () => animation.stop();
+    }
+
+    if (submissionStage === "success") {
+      successScale.setValue(0.65);
+      successOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(successScale, {
+          toValue: 1,
+          friction: 5,
+          tension: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [
+    pulseAnimation,
+    submissionStage,
+    successOpacity,
+    successScale,
+  ]);
+
+  useEffect(
+    () => () => {
+      if (successNavigationTimeoutRef.current) {
+        clearTimeout(successNavigationTimeoutRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -506,6 +564,8 @@ export default function AddPage() {
     }
 
     setIsSubmitting(true);
+    setSubmissionStage("submitting");
+    let reportSubmitted = false;
 
     try {
       const imageUrls = [];
@@ -534,16 +594,25 @@ export default function AddPage() {
       setDescription("");
       setSelectedTypes([]);
       setSelectedImages([]);
-      Alert.alert("已送出", "謝謝你的回報。");
+      reportSubmitted = true;
+      setSubmissionStage("success");
+      successNavigationTimeoutRef.current = setTimeout(() => {
+        setSubmissionStage("idle");
+        setIsSubmitting(false);
+        router.replace("/");
+      }, 1400);
     } catch (error) {
       console.error("Failed to submit report:", {
         code: error.code,
         message: error.message,
         serverResponse: error.serverResponse || error.customData?.serverResponse,
       });
+      setSubmissionStage("idle");
       Alert.alert("送出失敗", getUploadErrorMessage(error));
     } finally {
-      setIsSubmitting(false);
+      if (!reportSubmitted) {
+        setIsSubmitting(false);
+      }
     }
   }
 
@@ -747,6 +816,73 @@ export default function AddPage() {
         </Pressable>
       </ScrollView>
 
+      <Modal
+        animationType="fade"
+        onRequestClose={() => {}}
+        statusBarTranslucent
+        transparent
+        visible={submissionStage !== "idle"}
+      >
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityViewIsModal
+          style={[
+            styles.submissionOverlay,
+            submissionStage === "success"
+              ? styles.submissionOverlayCentered
+              : { paddingTop: Math.max(insets.top, 18) + 96 },
+          ]}
+        >
+          {submissionStage === "submitting" ? (
+            <View style={styles.submissionCard}>
+              <View style={styles.loadingAnimation}>
+                <Animated.View
+                  style={[
+                    styles.loadingPulse,
+                    {
+                      opacity: pulseAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.55, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: pulseAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.72, 1.45],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <ActivityIndicator color={colors.white} size="large" />
+              </View>
+              <Text style={styles.submissionTitle}>正在送出回報</Text>
+              <Text style={styles.submissionDescription}>
+                請稍候，我們正在上傳資料...
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.submissionCard}>
+              <Animated.View
+                style={[
+                  styles.successCircle,
+                  {
+                    opacity: successOpacity,
+                    transform: [{ scale: successScale }],
+                  },
+                ]}
+              >
+                <Text style={styles.successCheck}>✓</Text>
+              </Animated.View>
+              <Text style={styles.submissionTitle}>回報成功送出</Text>
+              <Text style={styles.submissionDescription}>
+                謝謝你協助守護社區安全
+              </Text>
+            </View>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -985,5 +1121,66 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 26,
+  },
+  submissionOverlay: {
+    flex: 1,
+    paddingHorizontal: 24,
+    backgroundColor: "rgba(44, 48, 46, 0.66)",
+    alignItems: "center",
+  },
+  submissionOverlayCentered: {
+    justifyContent: "center",
+  },
+  submissionCard: {
+    width: "100%",
+    maxWidth: 340,
+    paddingVertical: 26,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    backgroundColor: "rgba(100, 125, 112, 0.96)",
+    alignItems: "center",
+  },
+  loadingAnimation: {
+    width: 76,
+    height: 76,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loadingPulse: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.white,
+  },
+  successCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successCheck: {
+    color: colors.specialDark,
+    fontSize: 45,
+    fontWeight: "900",
+    lineHeight: 52,
+  },
+  submissionTitle: {
+    marginTop: 16,
+    color: colors.white,
+    fontSize: fontSizes.title,
+    fontWeight: "900",
+    lineHeight: 27,
+    textAlign: "center",
+  },
+  submissionDescription: {
+    marginTop: 7,
+    color: colors.white,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "800",
+    lineHeight: 20,
+    textAlign: "center",
   },
 });
