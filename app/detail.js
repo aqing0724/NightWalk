@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -26,11 +28,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../firebase";
 import { colors, fontSizes } from "./constants/theme";
 import { voteOnReport } from "../services/reportVoting";
+import VoteSuccessToast from "./components/VoteSuccessToast";
 
 const redDangerIcon = require("../assets/redDanger.png");
 const mapPinIcon = require("../assets/MapPin.png");
 const thumbsUpIcon = require("../assets/ThumbsUp.png");
+const thumbsUpActiveIcon = require("../assets/ThumbUp-on.png");
 const thumbsDownIcon = require("../assets/ThumbsDown.png");
+const thumbsDownActiveIcon = require("../assets/ThumbsDown-on.png");
 const accountIcon = require("../assets/account_circle.png");
 const sendIcon = require("../assets/Send-2.png");
 const chevronIcon = require("../assets/Chevron right.png");
@@ -51,6 +56,7 @@ export default function DetailPage() {
   const [isSending, setIsSending] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
+  const [voteSuccessAnimationKey, setVoteSuccessAnimationKey] = useState(0);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const currentReportId = Array.isArray(reportId) ? reportId[0] : reportId;
 
@@ -168,12 +174,12 @@ export default function DetailPage() {
       await addDoc(collection(db, "reports", currentReportId, "comments"), {
         message: nextMessage,
         userId: user.uid,
-        userName: user.displayName ?? user.email ?? "NightWalk 使用者",
+        userName: user.displayName || "NightWalk 使用者",
         createdAt: serverTimestamp(),
       });
 
       setMessage("");
-    } catch (error) {
+    } catch {
       Alert.alert("送出失敗", "目前無法送出留言，請稍後再試。");
     } finally {
       setIsSending(false);
@@ -193,10 +199,16 @@ export default function DetailPage() {
     setIsVoting(true);
 
     try {
+      const isNewVote = selectedVote !== nextVote;
+
       await voteOnReport(currentReportId, nextVote);
       setSelectedVote((currentVote) =>
         currentVote === nextVote ? null : nextVote
       );
+
+      if (isNewVote) {
+        setVoteSuccessAnimationKey((currentKey) => currentKey + 1);
+      }
     } catch (error) {
       if (error.message === "auth-required") {
         showLoginRequiredAlert("登入後才能進行社群驗證投票。");
@@ -230,7 +242,10 @@ export default function DetailPage() {
   const warningIcon = redDangerIcon;
 
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.screen}
+    >
       <StatusBar
         barStyle="dark-content"
         backgroundColor={colors.background}
@@ -254,9 +269,11 @@ export default function DetailPage() {
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: Math.max(insets.bottom, 26) + 96 },
+          { paddingBottom: 24 },
         ]}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
       >
         <View style={styles.reportCard}>
           <View style={styles.reportHeader}>
@@ -327,11 +344,12 @@ export default function DetailPage() {
               ]}
             >
               <Image
-                source={thumbsUpIcon}
-                style={[
-                  styles.voteIcon,
-                  selectedVote === "credible" ? styles.voteIconActive : null,
-                ]}
+                source={
+                  selectedVote === "credible"
+                    ? thumbsUpActiveIcon
+                    : thumbsUpIcon
+                }
+                style={styles.voteIcon}
               />
               <Text
                 style={[
@@ -354,11 +372,12 @@ export default function DetailPage() {
               ]}
             >
               <Image
-                source={thumbsDownIcon}
-                style={[
-                  styles.voteIcon,
-                  selectedVote === "notCredible" ? styles.voteIconActive : null,
-                ]}
+                source={
+                  selectedVote === "notCredible"
+                    ? thumbsDownActiveIcon
+                    : thumbsDownIcon
+                }
+                style={styles.voteIcon}
               />
               <Text
                 style={[
@@ -400,34 +419,38 @@ export default function DetailPage() {
           <Image source={accountIcon} style={styles.inputAvatarIcon} />
           <TextInput
             accessibilityLabel="Write a comment"
-            editable={!!currentUser}
-            onPressIn={() => {
-              if (!currentUser) {
-                showLoginRequiredAlert("登入後才能發表評論。");
-              }
-            }}
-            placeholder={currentUser ? "發表你的評論..." : "登入後才能發表評論"}
+            editable={!isSending}
+            maxLength={500}
+            onChangeText={setMessage}
+            onSubmitEditing={handleSendComment}
+            placeholder={
+              currentUser ? "發表你的評論..." : "登入後才能發表評論"
+            }
             placeholderTextColor={colors.special}
+            returnKeyType="send"
             style={styles.commentInput}
             value={message}
-            onChangeText={setMessage}
           />
           <Pressable
             accessibilityLabel="Send comment"
             accessibilityRole="button"
+            disabled={isSending || !message.trim()}
             hitSlop={10}
-            disabled={isSending}
             onPress={handleSendComment}
             style={[
               styles.sendButton,
-              isSending ? styles.sendButtonDisabled : null,
+              isSending || !message.trim()
+                ? styles.sendButtonDisabled
+                : null,
             ]}
           >
             <Image source={sendIcon} style={styles.sendIcon} />
           </Pressable>
         </View>
       </View>
-    </View>
+
+      <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -467,6 +490,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
+  },
+  scrollView: {
+    flex: 1,
   },
   reportCard: {
     minHeight: 244,
@@ -592,9 +618,6 @@ const styles = StyleSheet.create({
     height: 22,
     resizeMode: "contain",
   },
-  voteIconActive: {
-    tintColor: colors.white,
-  },
   voteText: {
     marginLeft: 9,
     color: colors.black,
@@ -666,10 +689,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
   inputBar: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
     paddingTop: 8,
     paddingHorizontal: 20,
     backgroundColor: colors.background,

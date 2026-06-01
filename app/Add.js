@@ -755,6 +755,7 @@ export default function AddPage() {
               setLocationText(text);
             }}
             onFocus={handleLocationInputFocus}
+            onPressIn={handleLocationInputFocus}
             onSubmitEditing={handleSearchLocation}
           />
           <Pressable

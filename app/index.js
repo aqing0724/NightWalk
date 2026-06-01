@@ -17,7 +17,7 @@ import DangerAreaSheet from "./components/DangerAreaSheet";
 import { colors } from "./constants/theme";
 import { db } from "../firebase";
 
-const trackIcon = require("../assets/Track.png");
+const centerIcon = require("../assets/location-crosshairs.png");
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -383,7 +383,7 @@ export default function Page() {
           pressed ? styles.recenterButtonPressed : null,
         ]}
       >
-        <Image source={trackIcon} style={styles.recenterIcon} />
+        <Image source={centerIcon} style={styles.recenterIcon} />
       </Pressable>
 
       <DangerAreaSheet

@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db } from "../../firebase";
 import { colors, fontSizes } from "../constants/theme";
 import { voteOnReport } from "../../services/reportVoting";
+import VoteSuccessToast from "./VoteSuccessToast";
 
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
@@ -26,7 +27,9 @@ const theftIcon = require("../../assets/Theft.png");
 const harassIcon = require("../../assets/Harass.png");
 const trackIcon = require("../../assets/Track.png");
 const thumbsUpIcon = require("../../assets/ThumbsUp.png");
+const thumbsUpActiveIcon = require("../../assets/ThumbUp-on.png");
 const thumbsDownIcon = require("../../assets/ThumbsDown.png");
+const thumbsDownActiveIcon = require("../../assets/ThumbsDown-on.png");
 const mapPinIcon = require("../../assets/MapPin.png");
 
 const typeLabels = {
@@ -42,8 +45,12 @@ const typeIcons = {
 };
 
 const dismissDistance = Dimensions.get("window").height;
-const dismissThreshold = 120;
-const dismissVelocity = 1;
+const minimumVisibleHeight = 96;
+const dismissVelocity = 1.4;
+
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum);
+}
 
 export default function DangerAreaSheet({
   visible,
@@ -55,21 +62,47 @@ export default function DangerAreaSheet({
   const insets = useSafeAreaInsets();
   const [isVoting, setIsVoting] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
+  const [voteSuccessAnimationKey, setVoteSuccessAnimationKey] = useState(0);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const dragY = useRef(new Animated.Value(0)).current;
+  const dragOffsetRef = useRef(0);
+  const dragStartOffsetRef = useRef(0);
   const onCloseRef = useRef(onClose);
+  const onSheetLayoutRef = useRef(onSheetLayout);
+  const sheetHeightRef = useRef(0);
   const panResponder = useRef(
     PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        gestureState.dy > 6 &&
+        Math.abs(gestureState.dy) > 6 &&
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        Math.abs(gestureState.dy) > 6 &&
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onPanResponderGrant: () => {
+        dragStartOffsetRef.current = dragOffsetRef.current;
+      },
       onPanResponderMove: (_, gestureState) => {
-        dragY.setValue(Math.max(0, gestureState.dy));
+        const nextOffset = clamp(
+          dragStartOffsetRef.current + gestureState.dy,
+          0,
+          sheetHeightRef.current || dismissDistance
+        );
+
+        dragOffsetRef.current = nextOffset;
+        dragY.setValue(nextOffset);
       },
       onPanResponderRelease: (_, gestureState) => {
+        const sheetHeight = sheetHeightRef.current || dismissDistance;
+        const nextOffset = clamp(
+          dragStartOffsetRef.current + gestureState.dy,
+          0,
+          sheetHeight
+        );
         const shouldClose =
-          gestureState.dy > dismissThreshold ||
-          gestureState.vy > dismissVelocity;
+          nextOffset > sheetHeight - minimumVisibleHeight ||
+          (gestureState.vy > dismissVelocity && nextOffset > 120);
 
         if (shouldClose) {
           Animated.timing(dragY, {
@@ -82,17 +115,16 @@ export default function DangerAreaSheet({
           return;
         }
 
-        Animated.spring(dragY, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
+        dragOffsetRef.current = nextOffset;
+        dragY.setValue(nextOffset);
+        onSheetLayoutRef.current?.(sheetHeight - nextOffset);
       },
       onPanResponderTerminate: () => {
-        Animated.spring(dragY, {
-          toValue: 0,
-          useNativeDriver: true,
-        }).start();
+        onSheetLayoutRef.current?.(
+          sheetHeightRef.current - dragOffsetRef.current
+        );
       },
+      onShouldBlockNativeResponder: () => true,
     })
   ).current;
   const credibleCount = report?.credibleCount ?? 0;
@@ -108,7 +140,12 @@ export default function DangerAreaSheet({
   }, [onClose]);
 
   useEffect(() => {
+    onSheetLayoutRef.current = onSheetLayout;
+  }, [onSheetLayout]);
+
+  useEffect(() => {
     if (visible) {
+      dragOffsetRef.current = 0;
       dragY.setValue(0);
     }
   }, [dragY, visible]);
@@ -170,10 +207,16 @@ export default function DangerAreaSheet({
     setIsVoting(true);
 
     try {
+      const isNewVote = selectedVote !== nextVote;
+
       await voteOnReport(report.id, nextVote);
       setSelectedVote((currentVote) =>
         currentVote === nextVote ? null : nextVote
       );
+
+      if (isNewVote) {
+        setVoteSuccessAnimationKey((currentKey) => currentKey + 1);
+      }
     } catch (error) {
       if (error.message === "auth-required") {
         showLoginRequiredAlert();
@@ -225,11 +268,14 @@ export default function DangerAreaSheet({
             },
           ]}
           onLayout={(event) => {
-            onSheetLayout?.(event.nativeEvent.layout.height);
+            const nextSheetHeight = event.nativeEvent.layout.height;
+
+            sheetHeightRef.current = nextSheetHeight;
+            onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
           }}
         >
           <View
-            accessibilityLabel="Drag down to close danger area details"
+            accessibilityLabel="Drag to resize danger area details"
             accessibilityRole="adjustable"
             {...panResponder.panHandlers}
             style={styles.handleArea}
@@ -293,20 +339,25 @@ export default function DangerAreaSheet({
               onPress={() => handleVote("credible")}
               style={[
                 styles.voteButton,
-                selectedVote === "credible" ? styles.voteButtonActive : null,
+                selectedVote === "credible"
+                  ? styles.voteButtonActive
+                  : null,
               ]}
             >
               <Image
-                source={thumbsUpIcon}
-                style={[
-                  styles.voteIcon,
-                  selectedVote === "credible" ? styles.voteIconActive : null,
-                ]}
+                source={
+                  selectedVote === "credible"
+                    ? thumbsUpActiveIcon
+                    : thumbsUpIcon
+                }
+                style={styles.voteIcon}
               />
               <Text
                 style={[
                   styles.voteText,
-                  selectedVote === "credible" ? styles.voteTextActive : null,
+                  selectedVote === "credible"
+                    ? styles.voteTextActive
+                    : null,
                 ]}
               >
                 可信({credibleCount})
@@ -324,11 +375,12 @@ export default function DangerAreaSheet({
               ]}
             >
               <Image
-                source={thumbsDownIcon}
-                style={[
-                  styles.voteIcon,
-                  selectedVote === "notCredible" ? styles.voteIconActive : null,
-                ]}
+                source={
+                  selectedVote === "notCredible"
+                    ? thumbsDownActiveIcon
+                    : thumbsDownIcon
+                }
+                style={styles.voteIcon}
               />
               <Text
                 style={[
@@ -353,6 +405,8 @@ export default function DangerAreaSheet({
             <Text style={styles.fullEventText}>點擊查看完整事件</Text>
           </Pressable>
         </Animated.View>
+
+        <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
       </View>
     </Modal>
   );
@@ -377,7 +431,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   handleArea: {
-    height: 22,
+    height: 44,
+    paddingTop: 5,
     alignItems: "center",
     justifyContent: "flex-start",
   },
@@ -388,7 +443,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.handle,
   },
   header: {
-    marginTop: 22,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -488,7 +542,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: colors.specialSoft,
+    backgroundColor: colors.special,
   },
   voteText: {
     marginLeft: 8,
@@ -498,10 +552,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   voteTextActive: {
-    color: colors.black,
-  },
-  voteIconActive: {
-    tintColor: colors.black,
+    color: colors.white,
   },
   metaIcon: {
     width: 22,
@@ -520,7 +571,6 @@ const styles = StyleSheet.create({
     width: 21,
     height: 21,
     resizeMode: "contain",
-    tintColor: colors.black,
   },
   fullEventButton: {
     height: 40,
