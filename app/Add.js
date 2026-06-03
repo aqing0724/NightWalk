@@ -20,7 +20,16 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,9 +37,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../firebase";
 import { colors, fontSizes } from "./constants/theme";
 
-const theftIcon = require("../assets/Theft.png");
-const harassIcon = require("../assets/Harass.png");
-const trackIcon = require("../assets/Track.png");
 const imageIcon = require("../assets/image.png");
 const mapPinIcon = require("../assets/marker.png");
 
@@ -49,10 +55,11 @@ const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 const maxPhotoCount = 5;
 
 const dangerTypes = [
-  { id: "theft", label: "偷竊", icon: theftIcon },
-  { id: "harass", label: "騷擾", icon: harassIcon },
-  { id: "track", label: "跟蹤", icon: trackIcon },
+  { id: "theft", label: "偷竊" },
+  { id: "harass", label: "騷擾" },
+  { id: "track", label: "跟蹤" },
 ];
+const customTypePrefix = "custom:";
 
 function buildGeocodingQueries(searchText) {
   return [
@@ -115,6 +122,26 @@ function formatCurrentAddress(address) {
   ]
     .filter((part, index, parts) => part && parts.indexOf(part) === index)
     .join("");
+}
+
+function createCustomTypeId(typeLabel) {
+  return `${customTypePrefix}${typeLabel}`;
+}
+
+function createCustomTypeDocId(typeLabel) {
+  return `custom-${encodeURIComponent(typeLabel)}`;
+}
+
+function getCustomTypeLabel(typeId) {
+  return typeId.replace(customTypePrefix, "");
+}
+
+function normalizeCustomTypeText(typeText) {
+  return typeText.trim().replace(/^#+/, "").trim();
+}
+
+function formatCustomTypeLabel(typeId) {
+  return `#${getCustomTypeLabel(typeId)}`;
 }
 
 async function uploadImageAsync(imageUri) {
@@ -233,6 +260,8 @@ export default function AddPage() {
   const [locationText, setLocationText] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [customTypeText, setCustomTypeText] = useState("");
+  const [customDangerTypes, setCustomDangerTypes] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -309,6 +338,37 @@ export default function AddPage() {
 
     return unsubscribe;
   }, [router]);
+
+  useEffect(() => {
+    const customTypesQuery = query(
+      collection(db, "dangerTypes"),
+      orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(
+      customTypesQuery,
+      (snapshot) => {
+        setCustomDangerTypes(
+          snapshot.docs
+            .map((customTypeDoc) => {
+              const data = customTypeDoc.data();
+              const label = normalizeCustomTypeText(data.label || "");
+
+              return label
+                ? {
+                    id: createCustomTypeId(label),
+                    label,
+                  }
+                : null;
+            })
+            .filter(Boolean)
+        );
+      },
+      (error) => {
+        console.error("Failed to load custom danger types:", error);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     if (!authChecked || !currentUser) {
@@ -481,6 +541,7 @@ export default function AddPage() {
     setLocationText("");
     setDescription("");
     setSelectedTypes([]);
+    setCustomTypeText("");
     setSelectedImages([]);
     setIsSearchingLocation(false);
     setIsFindingLocation(true);
@@ -493,6 +554,63 @@ export default function AddPage() {
       currentTypes.includes(typeId)
         ? currentTypes.filter((id) => id !== typeId)
         : [...currentTypes, typeId]
+    );
+  }
+
+  async function addCustomType(customTypeLabel) {
+    const matchingPresetType = dangerTypes.find(
+      (type) => type.label === customTypeLabel
+    );
+    const nextTypeId = matchingPresetType
+      ? matchingPresetType.id
+      : createCustomTypeId(customTypeLabel);
+
+    if (!matchingPresetType) {
+      await setDoc(
+        doc(db, "dangerTypes", createCustomTypeDocId(customTypeLabel)),
+        {
+          id: nextTypeId,
+          label: customTypeLabel,
+          visibility: "public",
+          createdBy: auth.currentUser?.uid || null,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    setSelectedTypes((currentTypes) =>
+      currentTypes.includes(nextTypeId)
+        ? currentTypes
+        : [...currentTypes, nextTypeId]
+    );
+    setCustomTypeText("");
+  }
+
+  function handleAddCustomType() {
+    const customTypeLabel = normalizeCustomTypeText(customTypeText);
+
+    if (!customTypeLabel) {
+      return;
+    }
+
+    Alert.alert(
+      "確認新增標籤",
+      `確定要新增「#${customTypeLabel}」嗎？`,
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "新增",
+          onPress: async () => {
+            try {
+              await addCustomType(customTypeLabel);
+            } catch (error) {
+              console.error("Failed to save custom danger type:", error);
+              Alert.alert("新增失敗", "目前無法儲存這個標籤，請稍後再試。");
+            }
+          },
+        },
+      ]
     );
   }
 
@@ -636,6 +754,7 @@ export default function AddPage() {
       setSelectedAddress("");
       setDescription("");
       setSelectedTypes([]);
+      setCustomTypeText("");
       setSelectedImages([]);
       reportSubmitted = true;
       setSubmissionStage("success");
@@ -658,6 +777,22 @@ export default function AddPage() {
       }
     }
   }
+
+  const selectedCustomTypes = selectedTypes.filter((typeId) =>
+    typeId.startsWith(customTypePrefix)
+  );
+  const customDangerTypeOptions = [
+    ...customDangerTypes,
+    ...selectedCustomTypes
+      .filter(
+        (typeId) =>
+          !customDangerTypes.some((customType) => customType.id === typeId)
+      )
+      .map((typeId) => ({
+        id: typeId,
+        label: getCustomTypeLabel(typeId),
+      })),
+  ];
 
   return (
     <View style={styles.screen}>
@@ -793,12 +928,56 @@ export default function AddPage() {
                   : null,
               ]}
             >
-              <Image source={item.icon} style={styles.dangerTypeIcon} />
+              <Text style={styles.dangerTypeHash}>#</Text>
+              <Text style={styles.optionLabel}>{item.label}</Text>
+            </Pressable>
+          ))}
+          {customDangerTypeOptions.map((item) => (
+            <Pressable
+              key={item.id}
+              accessibilityLabel={formatCustomTypeLabel(item.id)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: selectedTypes.includes(item.id) }}
+              onPress={() => toggleDangerType(item.id)}
+              style={[
+                styles.optionCard,
+                selectedTypes.includes(item.id)
+                  ? styles.optionCardSelected
+                  : null,
+              ]}
+            >
+              <Text style={styles.dangerTypeHash}>#</Text>
               <Text style={styles.optionLabel}>{item.label}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.moreText}>更多...</Text>
+        <View style={styles.customTypeBox}>
+          <TextInput
+            accessibilityLabel="Add custom danger type"
+            autoCorrect={false}
+            blurOnSubmit={false}
+            enablesReturnKeyAutomatically
+            placeholder="輸入其他危險類型"
+            placeholderTextColor={colors.special}
+            returnKeyType="done"
+            style={styles.customTypeInput}
+            value={customTypeText}
+            onChangeText={setCustomTypeText}
+            onSubmitEditing={handleAddCustomType}
+          />
+          <Pressable
+            accessibilityLabel="Confirm custom danger type"
+            accessibilityRole="button"
+            disabled={!customTypeText.trim()}
+            onPress={handleAddCustomType}
+            style={[
+              styles.customTypeButton,
+              !customTypeText.trim() ? styles.customTypeButtonDisabled : null,
+            ]}
+          >
+            <Text style={styles.customTypeButtonText}>新增</Text>
+          </Pressable>
+        </View>
 
         <Text style={styles.sectionTitle}>3.情況說明</Text>
         <TextInput
@@ -1068,17 +1247,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   optionRow: {
-    marginTop: 11,
+    marginTop: 8,
     flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 8,
     justifyContent: "space-between",
   },
   optionCard: {
     width: "31%",
-    height: 89,
+    height: 56,
+    paddingHorizontal: 10,
     borderWidth: 2,
     borderColor: colors.white,
     borderRadius: 8,
     backgroundColor: colors.white,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1086,26 +1269,52 @@ const styles = StyleSheet.create({
     borderColor: colors.special,
     backgroundColor: colors.background,
   },
-  dangerTypeIcon: {
-    width: 34,
-    height: 34,
-    resizeMode: "contain",
-    paddingTop:0,
-  },
-  optionLabel: {
-    marginTop: 9,
+  dangerTypeHash: {
     color: colors.black,
     fontSize: fontSizes.titleSmall,
     fontWeight: "900",
-    lineHeight: 24,
-    textAlign: "center",
+    lineHeight: 23,
   },
-  moreText: {
-    marginTop: 8,
+  optionLabel: {
+    marginLeft: 8,
     color: colors.black,
     fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
-    lineHeight: 21,
+    lineHeight: 22,
+    textAlign: "center",
+  },
+  customTypeBox: {
+    height: 46,
+    marginTop: 10,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  customTypeInput: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: 13,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "800",
+  },
+  customTypeButton: {
+    height: "100%",
+    minWidth: 62,
+    paddingHorizontal: 13,
+    backgroundColor: colors.special,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  customTypeButtonDisabled: {
+    opacity: 0.55,
+  },
+  customTypeButtonText: {
+    color: colors.white,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
   },
   photoButton: {
     width: 110,

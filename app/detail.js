@@ -45,6 +45,15 @@ const typeLabels = {
   harass: "騷擾",
   track: "跟蹤",
 };
+const customTypePrefix = "custom:";
+
+function formatTypeLabel(type) {
+  if (typeof type === "string" && type.startsWith(customTypePrefix)) {
+    return `#${type.replace(customTypePrefix, "")}`;
+  }
+
+  return typeLabels[type] || type;
+}
 
 export default function DetailPage() {
   const router = useRouter();
@@ -292,7 +301,7 @@ export default function DetailPage() {
             {typeList.length ? (
               typeList.map((type) => (
                 <View key={type} style={styles.tag}>
-                  <Text style={styles.tagText}>{typeLabels[type] || type}</Text>
+                  <Text style={styles.tagText}>{formatTypeLabel(type)}</Text>
                 </View>
               ))
             ) : (

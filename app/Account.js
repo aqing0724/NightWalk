@@ -18,7 +18,6 @@ import { collection, query, where, orderBy, onSnapshot } from "firebase/firestor
 
 import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實例)
 import { colors, fontSizes } from "./constants/theme";
-import BottomNavigation from "./components/BottomNavigation";
 
 export default function AccountPage() {
   const [currentView, setCurrentView] = useState("profile"); // "profile" 或 "settings"
@@ -269,11 +268,6 @@ where("id", "==", currentUser.uid), //
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
-
-      {/* 4. 底部導覽列 */}
-      <View style={[styles.navigation, { paddingBottom: insets.bottom }]}>
-        <BottomNavigation />
-      </View>
     </View>
   );
 }
@@ -400,15 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#CCCCCC",
   },
-  navigation: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-  },
   // 🎯 請把這些新樣式貼進原本的 StyleSheet.create 裡面：
   settingsHeader: {
     flexDirection: "row",
@@ -510,4 +495,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-

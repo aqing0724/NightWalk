@@ -23,9 +23,6 @@ import VoteSuccessToast from "./VoteSuccessToast";
 
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
-const theftIcon = require("../../assets/Theft.png");
-const harassIcon = require("../../assets/Harass.png");
-const trackIcon = require("../../assets/Track.png");
 const thumbsUpIcon = require("../../assets/ThumbsUp.png");
 const thumbsUpActiveIcon = require("../../assets/ThumbUp-on.png");
 const thumbsDownIcon = require("../../assets/ThumbsDown.png");
@@ -37,12 +34,15 @@ const typeLabels = {
   harass: "騷擾",
   track: "跟蹤",
 };
+const customTypePrefix = "custom:";
 
-const typeIcons = {
-  theft: theftIcon,
-  harass: harassIcon,
-  track: trackIcon,
-};
+function formatTypeLabel(type) {
+  if (typeof type === "string" && type.startsWith(customTypePrefix)) {
+    return type.replace(customTypePrefix, "");
+  }
+
+  return typeLabels[type] || type;
+}
 
 const dismissDistance = Dimensions.get("window").height;
 const minimumVisibleHeight = 96;
@@ -300,16 +300,13 @@ export default function DangerAreaSheet({
             {typeList.length ? (
               typeList.map((type) => (
                 <View key={type} style={styles.typeBadge}>
-                  <Image
-                    source={typeIcons[type] || faceIcon}
-                    style={styles.typeIcon}
-                  />
-                  <Text style={styles.typeText}>{typeLabels[type] || type}</Text>
+                  <Text style={styles.typeHash}>#</Text>
+                  <Text style={styles.typeText}>{formatTypeLabel(type)}</Text>
                 </View>
               ))
             ) : (
               <View style={styles.typeBadge}>
-                <Image source={faceIcon} style={styles.typeIcon} />
+                <Text style={styles.typeHash}>#</Text>
                 <Text style={styles.typeText}>未分類</Text>
               </View>
             )}
@@ -497,10 +494,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   typeText: {
-    marginLeft: 8,
+    marginLeft: 6,
     color: colors.black,
     fontSize: fontSizes.labelSmall,
     fontWeight: "800",
+    lineHeight: 18,
+  },
+  typeHash: {
+    color: colors.black,
+    fontSize: fontSizes.labelSmall,
+    fontWeight: "900",
     lineHeight: 18,
   },
   typeRow: {
@@ -560,12 +563,6 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     tintColor: colors.black,
     opacity: 1,
-  },
-  typeIcon: {
-    width: 20,
-    height: 20,
-    resizeMode: "contain",
-    tintColor: colors.black,
   },
   voteIcon: {
     width: 21,

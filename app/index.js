@@ -4,21 +4,21 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   View,
 } from "react-native";
 import * as Location from "expo-location";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-import { router } from "expo-router"; //黃
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
-import { colors } from "./constants/theme";
+import { colors, fontSizes } from "./constants/theme";
 import { db } from "../firebase";
-import BottomNavigation from "./components/BottomNavigation";
 
 const centerIcon = require("../assets/location-crosshairs.png");
+const typeMarkerImage = require("../assets/TypeMarker.png");
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -32,10 +32,17 @@ const cameraSettings = {
 };
 
 const fallbackSheetHeight = 360;
+const tileSize = 256;
 
 const locationOptions = {
   accuracy: Location.Accuracy.BestForNavigation,
 };
+const typeLabels = {
+  theft: "偷竊",
+  harass: "騷擾",
+  track: "跟蹤",
+};
+const customTypePrefix = "custom:";
 
 let cachedUserCenter = null;
 
@@ -109,6 +116,51 @@ function findNearestReport(reports, center) {
 
     return nearest;
   }, null);
+}
+
+function formatMarkerType(type) {
+  if (typeof type !== "string") {
+    return "未分類";
+  }
+
+  if (type.startsWith(customTypePrefix)) {
+    return type.replace(customTypePrefix, "") || "未分類";
+  }
+
+  return typeLabels[type] || type || "未分類";
+}
+
+function getMarkerTypeLabel(report) {
+  return formatMarkerType(report?.types?.[0]);
+}
+
+function coordinateToWorldPoint(coordinate, zoom) {
+  const scale = tileSize * 2 ** zoom;
+  const sinLatitude = Math.sin((coordinate.latitude * Math.PI) / 180);
+  const safeSinLatitude = Math.min(Math.max(sinLatitude, -0.9999), 0.9999);
+
+  return {
+    x: ((coordinate.longitude + 180) / 360) * scale,
+    y:
+      (0.5 -
+        Math.log((1 + safeSinLatitude) / (1 - safeSinLatitude)) /
+          (4 * Math.PI)) *
+      scale,
+  };
+}
+
+function worldPointToCoordinate(point, zoom) {
+  const scale = tileSize * 2 ** zoom;
+  const longitude = (point.x / scale) * 360 - 180;
+  const mercatorLatitude = Math.PI - (2 * Math.PI * point.y) / scale;
+  const latitude =
+    (2 * Math.atan(Math.exp(mercatorLatitude)) - Math.PI / 2) *
+    (180 / Math.PI);
+
+  return {
+    latitude,
+    longitude,
+  };
 }
 
 export default function Page() {
@@ -228,7 +280,16 @@ export default function Page() {
     }
   }
 
-  async function focusReportOnMap(report) {
+  function handleOpenReportSheet(report) {
+    if (!report) {
+      return;
+    }
+
+    setSelectedReportId(report.id);
+    setDangerSheetVisible(true);
+  }
+
+  function focusReportOnMap(report) {
     if (!report) {
       return;
     }
@@ -238,40 +299,27 @@ export default function Page() {
       longitude: report.longitude,
     };
     const hiddenHeight = sheetHeight || fallbackSheetHeight;
+    const visibleTop = Math.max(insets.top, 16);
+    const visibleBottom = Math.max(visibleTop, screenHeight - hiddenHeight);
     const targetPoint = {
       x: screenWidth / 2,
-      y: Math.max(0, (screenHeight - hiddenHeight) / 2),
+      y: (visibleTop + visibleBottom) / 2,
     };
     const screenCenterPoint = {
       x: screenWidth / 2,
       y: screenHeight / 2,
     };
-    let center = reportCenter;
-
-    try {
-      const targetCoordinate =
-        await mapRef.current?.coordinateForPoint(targetPoint);
-      const screenCenterCoordinate =
-        await mapRef.current?.coordinateForPoint(screenCenterPoint);
-
-      if (
-        isValidCoordinate(targetCoordinate) &&
-        isValidCoordinate(screenCenterCoordinate)
-      ) {
-        center = {
-          latitude:
-            report.latitude +
-            screenCenterCoordinate.latitude -
-            targetCoordinate.latitude,
-          longitude:
-            report.longitude +
-            screenCenterCoordinate.longitude -
-            targetCoordinate.longitude,
-        };
-      }
-    } catch {
-      center = reportCenter;
-    }
+    const reportPoint = coordinateToWorldPoint(
+      reportCenter,
+      cameraSettings.zoom
+    );
+    const center = worldPointToCoordinate(
+      {
+        x: reportPoint.x + screenCenterPoint.x - targetPoint.x,
+        y: reportPoint.y + screenCenterPoint.y - targetPoint.y,
+      },
+      cameraSettings.zoom
+    );
 
     mapRef.current?.animateCamera(
       {
@@ -343,15 +391,25 @@ export default function Page() {
                 latitude: report.latitude,
                 longitude: report.longitude,
               }}
-              pinColor={colors.red}
-              title={report.locationText || "危險回報"}
-              description={report.description}
-              onPress={() => {
-                setSelectedReportId(report.id);
-                focusReportOnMap(report);
-                setDangerSheetVisible(true);
-              }}
-            />
+              anchor={{ x: 0.5, y: 1 }}
+              zIndex={selectedReportId === report.id ? 2 : 1}
+              onPress={() => handleOpenReportSheet(report)}
+            >
+              <View style={styles.reportMarker}>
+                <Image
+                  source={typeMarkerImage}
+                  style={styles.reportMarkerImage}
+                />
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.75}
+                  style={styles.reportMarkerText}
+                >
+                  #{getMarkerTypeLabel(report)}
+                </Text>
+              </View>
+            </Marker>
           ))}
         </MapView>
       ) : null}
@@ -366,9 +424,7 @@ export default function Page() {
           report={nearestReport}
           onPress={() => {
             if (nearestReport) {
-              setSelectedReportId(null);
-              focusReportOnMap(nearestReport);
-              setDangerSheetVisible(true);
+              handleOpenReportSheet(nearestReport);
             }
           }}
         />
@@ -386,11 +442,6 @@ export default function Page() {
       >
         <Image source={centerIcon} style={styles.recenterIcon} />
       </Pressable>
-
-      <View style={styles.navigation}>
-        <BottomNavigation onPressProfile={() => router.push("/profile")} />
-      </View> 
-        {/* 黃 */}
 
       <DangerAreaSheet
         visible={dangerSheetVisible}
@@ -413,12 +464,33 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
+  reportMarker: {
+    width: 64,
+    height: 64,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reportMarkerImage: {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    resizeMode: "contain",
+  },
+  reportMarkerText: {
+    position: "absolute",
+    top: 18,
+    width: 49,
+    color: colors.white,
+    fontSize: fontSizes.subtitle,
+    fontWeight: "900",
+    lineHeight: fontSizes.title,
+    textAlign: "center",
+  },
   dangerCard: {
     position: "absolute",
     left: 20,
     right: 20,
     zIndex: 2,
-
   },
   recenterButton: {
     position: "absolute",
