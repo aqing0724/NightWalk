@@ -10,16 +10,13 @@ import {
 import * as Location from "expo-location";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
-<<<<<<< HEAD
 import { router } from "expo-router"; //黃
-=======
 import { useSafeAreaInsets } from "react-native-safe-area-context";
->>>>>>> b79e43a2f6bb3c7e88c4a4d365a7736b6f3b78fc
-
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
 import { colors } from "./constants/theme";
 import { db } from "../firebase";
+import BottomNavigation from "./components/BottomNavigation";
 
 const centerIcon = require("../assets/location-crosshairs.png");
 
