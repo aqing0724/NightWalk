@@ -1,0 +1,131 @@
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { Mail, Lock, User } from 'lucide-react-native'; // 使用 Lucide 圖標
+
+// 取得螢幕高度以進行某些響應式調整
+const { height } = Dimensions.get('window');
+
+const RegisterScreen = () => {
+  // 用於輸入框的狀態
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nickname, setNickname] = useState('');
+
+  // 輔助函式：建立自訂輸入框
+  const renderInput = (
+    label: string,
+    IconComponent: React.ElementType,
+    placeholder: string,
+    value: string,
+    onChangeText: (text: string) => void,
+    secureTextEntry: boolean = false
+  ) => (
+    <View style={styles.inputContainer}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <View style={styles.inputField}>
+        <IconComponent size={24} color="#666666" style={styles.inputIcon} />
+        <TextInput
+          style={styles.inputText}
+          placeholder={placeholder}
+          placeholderTextColor="#999999"
+          value={value}
+          onChangeText={onChangeText}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize="none"
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* 標題區域 */}
+      <View style={styles.header}>
+        <Text style={styles.title}>建立新帳號</Text>
+        <Text style={styles.subtitle}>註冊帳號使用更多功能</Text>
+      </View>
+
+      {/* 輸入欄位區域 */}
+      <View style={styles.form}>
+        {renderInput("電子郵件", Mail, "請輸入電子郵件", email, setEmail)}
+        {renderInput("設定密碼", Lock, "請設定至少 6 個字元的密碼", password, setPassword, true)}
+        {renderInput("確認密碼", Lock, "請再次輸入密碼", confirmPassword, setConfirmPassword, true)}
+        {/* 修正了截圖中「帳號暱稱」底下的 Placeholder */}
+      </View>
+
+      {/* 建立帳號按鈕 */}
+      <TouchableOpacity style={styles.button} onPress={() => console.log('註冊按鈕被點擊')}>
+        <Text style={styles.buttonText}>建立帳號</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// 樣式設定，模仿截圖中的外觀
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingHorizontal: 30, // 增加兩側間距
+    paddingBottom: 50, // 底部留白
+  },
+  header: {
+    marginTop: height * 0.08, // 根據螢幕高度動態調整顶部間距
+    marginBottom: height * 0.04, // 減少與輸入框的間距
+  },
+  title: {
+    fontSize: 28, // 較大的標題
+    fontWeight: 'bold',
+    color: '#F4F4F4', // 與背景有對比的淺色
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#666666', // 較淡的副標題顏色
+  },
+  form: {
+    flex: 1, // 讓表單區域佔據剩餘空間
+  },
+  inputContainer: {
+    marginBottom: 20, // 輸入框之間的間距
+  },
+  inputLabel: {
+    fontSize: 18,
+    color: '#F4F4F4',
+    marginBottom: 8,
+    fontWeight: '500', // 稍微加粗
+  },
+  inputField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // 非常淡的背景
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)', // 稍微明顯的邊框
+    paddingHorizontal: 15,
+    height: 56, // 統一高度
+  },
+  inputIcon: {
+    marginRight: 15, // 圖標與文字之間的間距
+  },
+  inputText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#F4F4F4', // 淺色輸入文字
+  },
+  button: {
+    backgroundColor: '#8C9A8E', // 綠灰色按鈕
+    height: 56,
+    borderRadius: 12, // 更圓潤的按鈕
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 'auto', // 將按鈕推到底部
+  },
+  buttonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF', // 白色按鈕文字
+  },
+});
+
+export default RegisterScreen;

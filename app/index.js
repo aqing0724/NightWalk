@@ -10,12 +10,13 @@ import {
 import * as Location from "expo-location";
 import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
 import MapView, { Marker, PROVIDER_GOOGLE } from "react-native-maps";
+import { router } from "expo-router"; //黃
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
 import { colors } from "./constants/theme";
 import { db } from "../firebase";
+import BottomNavigation from "./components/BottomNavigation";
 
 const centerIcon = require("../assets/location-crosshairs.png");
 
@@ -385,6 +386,11 @@ export default function Page() {
       >
         <Image source={centerIcon} style={styles.recenterIcon} />
       </Pressable>
+
+      <View style={styles.navigation}>
+        <BottomNavigation onPressProfile={() => router.push("/profile")} />
+      </View> 
+        {/* 黃 */}
 
       <DangerAreaSheet
         visible={dangerSheetVisible}
