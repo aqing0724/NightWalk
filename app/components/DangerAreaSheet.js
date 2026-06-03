@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   fullEventText: {
-    color: colors.specialDark,
+    color: colors.special,
     fontSize: fontSizes.body,
     fontWeight: "900",
     lineHeight: 20,

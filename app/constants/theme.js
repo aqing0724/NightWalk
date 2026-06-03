@@ -4,7 +4,6 @@ export const colors = {
   white: "#FFFFFF",
   background: "#F7F7F7",
   special: "#A6BAAE",
-  specialDark: "#647D70",
   specialSoft: "#E5ECE8",
   red: "#FF8080",
   surfaceMuted: "#F0F0F0",

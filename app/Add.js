@@ -678,7 +678,7 @@ export default function AddPage() {
         <Text style={styles.title}>回報危險地點</Text>
         {isRefreshing ? (
           <ActivityIndicator
-            color={colors.specialDark}
+            color={colors.special}
             size="small"
             style={styles.refreshIndicator}
           />
@@ -695,11 +695,11 @@ export default function AddPage() {
         ]}
         refreshControl={
           <RefreshControl
-            colors={[colors.specialDark]}
+            colors={[colors.special]}
             enabled={!isSubmitting}
             onRefresh={handleRefresh}
             refreshing={isRefreshing}
-            tintColor={colors.specialDark}
+            tintColor={colors.special}
           />
         }
         showsVerticalScrollIndicator={false}
@@ -1233,7 +1233,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   successCheck: {
-    color: colors.specialDark,
+    color: colors.special,
     fontSize: 45,
     fontWeight: "900",
     lineHeight: 52,

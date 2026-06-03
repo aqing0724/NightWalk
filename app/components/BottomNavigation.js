@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   navIconActive: {
     opacity: 1,
-    tintColor: colors.specialDark,
+    tintColor: colors.special,
   },
   addIcon: {
     width: 26,
@@ -251,6 +251,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.black,
   },
   addStrokeActive: {
-    backgroundColor: colors.specialDark,
+    backgroundColor: colors.special,
   },
 });
