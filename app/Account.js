@@ -10,7 +10,7 @@ import {
   Alert
 } from "react-native";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged,signOut,deleteUser } from "firebase/auth";
+import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 2. 引入 Firestore 相關語法
@@ -74,6 +74,16 @@ where("id", "==", currentUser.uid), //
     return unsubscribe; // 組件卸載時取消監聽
   }, [currentUser]);
 
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      router.replace("/Login");
+    } catch (error) {
+      console.error("登出失敗:", error);
+      Alert.alert("登出失敗", "目前無法登出，請稍後再試。");
+    }
+  }
+
 
   // 渲染每一條歷史紀錄卡片
   const renderItem = ({ item }) => (
@@ -114,16 +124,16 @@ where("id", "==", currentUser.uid), //
         {/* 頂部導航 */}
         <View style={styles.settingsHeader}>
           <Pressable onPress={() => setCurrentView("profile")} style={{ padding: 8 }}>
-            <Text style={{ fontSize: 22, fontWeight: "bold" }}>❮</Text>
+            <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold" }}>❮</Text>
           </Pressable>
-          <Text style={{ fontSize: 22, fontWeight: "bold", color: "#000000" }}>設定</Text>
+          <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: "#000000" }}>設定</Text>
           <View style={{ width: 32 }} />
         </View>
 
         {/* 大頭貼 */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarPlaceholderLarge}>
-            <Text style={{ fontSize: 44 }}>👤</Text>
+            <Text style={{ fontSize: fontSizes.displayLarge }}>👤</Text>
           </View>
           <Pressable><Text style={styles.editAvatarText}>編輯頭像</Text></Pressable>
         </View>
@@ -178,7 +188,7 @@ where("id", "==", currentUser.uid), //
             onPress={() => {
               Alert.alert("登出帳號", "確定要登出嗎？", [
                 { text: "取消", style: "cancel" },
-                { text: "確定", style: "destructive", onPress: () => require("firebase/auth").signOut(auth) }
+                { text: "確定", style: "destructive", onPress: handleSignOut }
               ]);
             }}
           >
@@ -236,14 +246,14 @@ where("id", "==", currentUser.uid), //
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatarPlaceholder}>
-            <Text style={{ fontSize: 40 }}>👤</Text>
+            <Text style={{ fontSize: fontSizes.display }}>👤</Text>
           </View>
 <Text style={styles.userName}>
   {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
 </Text>
         </View>
         <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
-          <Text style={{ fontSize: 24 }}>⚙️</Text>
+          <Text style={{ fontSize: fontSizes.heading }}>⚙️</Text>
         </Pressable>
       </View>
 
@@ -305,7 +315,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   userName: {
-    fontSize: 22,
+    fontSize: fontSizes.titleLarge,
     fontWeight: "bold",
     marginLeft: 16,
     color: "#1A1A1A",
@@ -331,12 +341,12 @@ const styles = StyleSheet.create({
     borderRightColor: "rgba(255, 255, 255, 0.3)",
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: fontSizes.heading,
     fontWeight: "bold",
     color: "#FFFFFF",
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: fontSizes.labelSmall,
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 4,
   },
@@ -364,11 +374,11 @@ const styles = StyleSheet.create({
     width: 50,
   },
   iconPlaceholder: {
-    fontSize: 24,
+    fontSize: fontSizes.heading,
     marginBottom: 4,
   },
   cardTypeText: {
-    fontSize: 12,
+    fontSize: fontSizes.small,
     fontWeight: "bold",
     color: "#1A1A1A",
   },
@@ -377,13 +387,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
     color: "#000000",
     marginBottom: 4,
   },
   cardSubText: {
-    fontSize: 12,
+    fontSize: fontSizes.small,
     color: "#888888",
     marginTop: 2,
   },
@@ -391,7 +401,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   arrow: {
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     color: "#CCCCCC",
   },
   // 🎯 請把這些新樣式貼進原本的 StyleSheet.create 裡面：
@@ -416,13 +426,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   editAvatarText: {
-    fontSize: 14,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "bold",
     color: "#000000",
     marginTop: 12,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "bold",
     color: "#000000",
     marginLeft: 24,
@@ -449,16 +459,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rowIcon: {
-    fontSize: 18,
+    fontSize: fontSizes.titleSmall,
     marginRight: 12,
   },
   rowLabel: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "600",
     color: "#000000",
   },
   rowValue: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "600",
     color: "#777777",
     maxWidth: 180,
@@ -479,7 +489,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: "#FF5B5B",
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
   },
   deleteButton: {
@@ -491,7 +501,7 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
   },
 });

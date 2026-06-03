@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Mail, Lock, User } from 'lucide-react-native'; // 使用 Lucide 圖標
+import { fontSizes } from './constants/theme';
 
 // 取得螢幕高度以進行某些響應式調整
 const { height } = Dimensions.get('window');
@@ -74,13 +75,13 @@ const styles = StyleSheet.create({
     marginBottom: height * 0.04, // 減少與輸入框的間距
   },
   title: {
-    fontSize: 28, // 較大的標題
+    fontSize: fontSizes.headingLarge, // 較大的標題
     fontWeight: 'bold',
     color: '#F4F4F4', // 與背景有對比的淺色
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     color: '#666666', // 較淡的副標題顏色
   },
   form: {
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
     marginBottom: 20, // 輸入框之間的間距
   },
   inputLabel: {
-    fontSize: 18,
+    fontSize: fontSizes.titleSmall,
     color: '#F4F4F4',
     marginBottom: 8,
     fontWeight: '500', // 稍微加粗
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     color: '#F4F4F4', // 淺色輸入文字
   },
   button: {
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
     marginTop: 'auto', // 將按鈕推到底部
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: fontSizes.titleSmall,
     fontWeight: 'bold',
     color: '#FFFFFF', // 白色按鈕文字
   },

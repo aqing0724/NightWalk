@@ -23,5 +23,10 @@ export const fontSizes = {
   titleSmall: 18,
   titleMedium: 19,
   title: 20,
+  titleLarge: 22,
   heading: 24,
+  headingLarge: 28,
+  display: 40,
+  displayLarge: 44,
+  successMark: 45,
 };

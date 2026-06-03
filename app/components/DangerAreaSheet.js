@@ -3,7 +3,6 @@ import {
   Animated,
   Dimensions,
   Image,
-  Modal,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -47,6 +46,8 @@ function formatTypeLabel(type) {
 const dismissDistance = Dimensions.get("window").height;
 const minimumVisibleHeight = 96;
 const dismissVelocity = 1.4;
+const sheetOpenDuration = 260;
+const sheetCloseDuration = 220;
 
 function clamp(value, minimum, maximum) {
   return Math.min(Math.max(value, minimum), maximum);
@@ -64,7 +65,7 @@ export default function DangerAreaSheet({
   const [selectedVote, setSelectedVote] = useState(null);
   const [voteSuccessAnimationKey, setVoteSuccessAnimationKey] = useState(0);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
-  const dragY = useRef(new Animated.Value(0)).current;
+  const dragY = useRef(new Animated.Value(dismissDistance)).current;
   const dragOffsetRef = useRef(0);
   const dragStartOffsetRef = useRef(0);
   const onCloseRef = useRef(onClose);
@@ -107,7 +108,7 @@ export default function DangerAreaSheet({
         if (shouldClose) {
           Animated.timing(dragY, {
             toValue: dismissDistance,
-            duration: 220,
+            duration: sheetCloseDuration,
             useNativeDriver: true,
           }).start(() => {
             onCloseRef.current?.();
@@ -146,8 +147,17 @@ export default function DangerAreaSheet({
   useEffect(() => {
     if (visible) {
       dragOffsetRef.current = 0;
-      dragY.setValue(0);
+      dragY.setValue(dismissDistance);
+      Animated.timing(dragY, {
+        toValue: 0,
+        duration: sheetOpenDuration,
+        useNativeDriver: true,
+      }).start();
+      return;
     }
+
+    dragOffsetRef.current = 0;
+    dragY.setValue(dismissDistance);
   }, [dragY, visible]);
 
   useEffect(() => {
@@ -244,175 +254,167 @@ export default function DangerAreaSheet({
     ]);
   }
 
+  if (!visible) {
+    return null;
+  }
+
   return (
-    <Modal
-      animationType="slide"
-      transparent
-      visible={visible}
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalRoot}>
-        <Pressable
-          accessibilityLabel="Close danger area details"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.backdrop}
-        />
+    <View style={styles.overlay}>
+      <Pressable
+        accessibilityLabel="Close danger area details"
+        accessibilityRole="button"
+        onPress={onClose}
+        style={styles.backdrop}
+      />
 
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: Math.max(insets.bottom, 16),
-              transform: [{ translateY: dragY }],
-            },
-          ]}
-          onLayout={(event) => {
-            const nextSheetHeight = event.nativeEvent.layout.height;
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            transform: [{ translateY: dragY }],
+          },
+        ]}
+        onLayout={(event) => {
+          const nextSheetHeight = event.nativeEvent.layout.height;
 
-            sheetHeightRef.current = nextSheetHeight;
-            onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
-          }}
+          sheetHeightRef.current = nextSheetHeight;
+          onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
+        }}
+      >
+        <View
+          accessibilityLabel="Drag to resize danger area details"
+          accessibilityRole="adjustable"
+          {...panResponder.panHandlers}
+          style={styles.handleArea}
         >
-          <View
-            accessibilityLabel="Drag to resize danger area details"
-            accessibilityRole="adjustable"
-            {...panResponder.panHandlers}
-            style={styles.handleArea}
-          >
-            <View style={styles.handle} />
-          </View>
+          <View style={styles.handle} />
+        </View>
 
-          <View style={styles.header}>
-            <Image source={warningIcon} style={styles.warningIcon} />
-            <Text style={styles.title}>危險區域</Text>
-          </View>
+        <View style={styles.header}>
+          <Image source={warningIcon} style={styles.warningIcon} />
+          <Text style={styles.title}>危險區域</Text>
+        </View>
 
-          <View style={styles.metaItem}>
-            <Image source={mapPinIcon} style={styles.metaIcon} />
-            <Text style={styles.metaText}>{locationText}</Text>
-          </View>
+        <View style={styles.metaItem}>
+          <Image source={mapPinIcon} style={styles.metaIcon} />
+          <Text style={styles.metaText}>{locationText}</Text>
+        </View>
 
-          <View style={styles.divider} />
+        <View style={styles.divider} />
 
-          <Text style={styles.sectionTitle}>危險類型</Text>
-          <View style={styles.typeRow}>
-            {typeList.length ? (
-              typeList.map((type) => (
-                <View key={type} style={styles.typeBadge}>
-                  <Text style={styles.typeHash}>#</Text>
-                  <Text style={styles.typeText}>{formatTypeLabel(type)}</Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.typeBadge}>
+        <Text style={styles.sectionTitle}>危險類型</Text>
+        <View style={styles.typeRow}>
+          {typeList.length ? (
+            typeList.map((type) => (
+              <View key={type} style={styles.typeBadge}>
                 <Text style={styles.typeHash}>#</Text>
-                <Text style={styles.typeText}>未分類</Text>
+                <Text style={styles.typeText}>{formatTypeLabel(type)}</Text>
               </View>
-            )}
-          </View>
+            ))
+          ) : (
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeHash}>#</Text>
+              <Text style={styles.typeText}>未分類</Text>
+            </View>
+          )}
+        </View>
 
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>危險描述</Text>
+        <View style={styles.divider} />
+        <Text style={styles.sectionTitle}>危險描述</Text>
 
-          {report?.description ? (
-            <Text style={styles.description} numberOfLines={3}>
-              {report.description}
+        {report?.description ? (
+          <Text style={styles.description} numberOfLines={3}>
+            {report.description}
+          </Text>
+        ) : null}
+
+        <View style={styles.divider} />
+
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>社群驗證</Text>
+          <Text style={styles.voteHint}>已有 {voteCount} 人投票</Text>
+        </View>
+
+        <View style={styles.voteRow}>
+          <Pressable
+            accessibilityLabel="Trust this danger report"
+            accessibilityRole="button"
+            disabled={isVoting}
+            onPress={() => handleVote("credible")}
+            style={[
+              styles.voteButton,
+              selectedVote === "credible" ? styles.voteButtonActive : null,
+            ]}
+          >
+            <Image
+              source={
+                selectedVote === "credible" ? thumbsUpActiveIcon : thumbsUpIcon
+              }
+              style={styles.voteIcon}
+            />
+            <Text
+              style={[
+                styles.voteText,
+                selectedVote === "credible" ? styles.voteTextActive : null,
+              ]}
+            >
+              可信({credibleCount})
             </Text>
-          ) : null}
-
-          <View style={styles.divider} />
-
-          <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>社群驗證</Text>
-            <Text style={styles.voteHint}>已有 {voteCount} 人投票</Text>
-          </View>
-
-          <View style={styles.voteRow}>
-            <Pressable
-              accessibilityLabel="Trust this danger report"
-              accessibilityRole="button"
-              disabled={isVoting}
-              onPress={() => handleVote("credible")}
-              style={[
-                styles.voteButton,
-                selectedVote === "credible"
-                  ? styles.voteButtonActive
-                  : null,
-              ]}
-            >
-              <Image
-                source={
-                  selectedVote === "credible"
-                    ? thumbsUpActiveIcon
-                    : thumbsUpIcon
-                }
-                style={styles.voteIcon}
-              />
-              <Text
-                style={[
-                  styles.voteText,
-                  selectedVote === "credible"
-                    ? styles.voteTextActive
-                    : null,
-                ]}
-              >
-                可信({credibleCount})
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Distrust this danger report"
-              accessibilityRole="button"
-              disabled={isVoting}
-              onPress={() => handleVote("notCredible")}
-              style={[
-                styles.voteButton,
-                selectedVote === "notCredible" ? styles.voteButtonActive : null,
-              ]}
-            >
-              <Image
-                source={
-                  selectedVote === "notCredible"
-                    ? thumbsDownActiveIcon
-                    : thumbsDownIcon
-                }
-                style={styles.voteIcon}
-              />
-              <Text
-                style={[
-                  styles.voteText,
-                  selectedVote === "notCredible" ? styles.voteTextActive : null,
-                ]}
-              >
-                不可信({notCredibleCount})
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.divider} />
+          </Pressable>
 
           <Pressable
-            accessibilityLabel="View full incident"
+            accessibilityLabel="Distrust this danger report"
             accessibilityRole="button"
-            disabled={!report?.id}
-            onPress={handleViewFullEvent}
-            style={styles.fullEventButton}
+            disabled={isVoting}
+            onPress={() => handleVote("notCredible")}
+            style={[
+              styles.voteButton,
+              selectedVote === "notCredible" ? styles.voteButtonActive : null,
+            ]}
           >
-            <Text style={styles.fullEventText}>點擊查看完整事件</Text>
+            <Image
+              source={
+                selectedVote === "notCredible"
+                  ? thumbsDownActiveIcon
+                  : thumbsDownIcon
+              }
+              style={styles.voteIcon}
+            />
+            <Text
+              style={[
+                styles.voteText,
+                selectedVote === "notCredible" ? styles.voteTextActive : null,
+              ]}
+            >
+              不可信({notCredibleCount})
+            </Text>
           </Pressable>
-        </Animated.View>
+        </View>
 
-        <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
-      </View>
-    </Modal>
+        <View style={styles.divider} />
+
+        <Pressable
+          accessibilityLabel="View full incident"
+          accessibilityRole="button"
+          disabled={!report?.id}
+          onPress={handleViewFullEvent}
+          style={styles.fullEventButton}
+        >
+          <Text style={styles.fullEventText}>點擊查看完整事件</Text>
+        </Pressable>
+      </Animated.View>
+
+      <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "flex-end",
+    zIndex: 5,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

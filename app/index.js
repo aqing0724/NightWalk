@@ -131,7 +131,7 @@ function formatMarkerType(type) {
 }
 
 function getMarkerTypeLabel(report) {
-  return formatMarkerType(report?.types?.[0]);
+  return formatMarkerType(report?.markerType || report?.types?.[0]);
 }
 
 function coordinateToWorldPoint(coordinate, zoom) {
@@ -392,7 +392,8 @@ export default function Page() {
                 longitude: report.longitude,
               }}
               anchor={{ x: 0.5, y: 1 }}
-              zIndex={selectedReportId === report.id ? 2 : 1}
+              tracksViewChanges={Platform.OS === "ios"}
+              zIndex={1}
               onPress={() => handleOpenReportSheet(report)}
             >
               <View style={styles.reportMarker}>
@@ -478,7 +479,7 @@ const styles = StyleSheet.create({
   },
   reportMarkerText: {
     position: "absolute",
-    top: 18,
+    top: 15,
     width: 49,
     color: colors.white,
     fontSize: fontSizes.subtitle,

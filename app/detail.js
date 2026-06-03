@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,6 +18,8 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -48,11 +51,13 @@ const typeLabels = {
 const customTypePrefix = "custom:";
 
 function formatTypeLabel(type) {
+  let label = typeLabels[type] || type || "未分類";
+
   if (typeof type === "string" && type.startsWith(customTypePrefix)) {
-    return `#${type.replace(customTypePrefix, "")}`;
+    label = type.replace(customTypePrefix, "") || "未分類";
   }
 
-  return typeLabels[type] || type;
+  return `#${label}`;
 }
 
 export default function DetailPage() {
@@ -64,6 +69,7 @@ export default function DetailPage() {
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedVote, setSelectedVote] = useState(null);
   const [voteSuccessAnimationKey, setVoteSuccessAnimationKey] = useState(0);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
@@ -154,6 +160,58 @@ export default function DetailPage() {
 
     return unsubscribe;
   }, [currentReportId]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!currentReportId) {
+      return;
+    }
+
+    setIsRefreshing(true);
+
+    try {
+      const reportRef = doc(db, "reports", currentReportId);
+      const commentsQuery = query(
+        collection(db, "reports", currentReportId, "comments"),
+        orderBy("createdAt", "asc")
+      );
+
+      const requests = [getDoc(reportRef), getDocs(commentsQuery)];
+
+      if (currentUser) {
+        requests.push(
+          getDoc(doc(db, "reports", currentReportId, "votes", currentUser.uid))
+        );
+      }
+
+      const [reportSnapshot, commentsSnapshot, voteSnapshot] =
+        await Promise.all(requests);
+
+      setReport(
+        reportSnapshot.exists()
+          ? {
+              id: reportSnapshot.id,
+              ...reportSnapshot.data(),
+            }
+          : null
+      );
+      setComments(
+        commentsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
+      );
+
+      if (currentUser && voteSnapshot) {
+        setSelectedVote(voteSnapshot.exists() ? voteSnapshot.data().vote : null);
+      } else {
+        setSelectedVote(null);
+      }
+    } catch {
+      Alert.alert("刷新失敗", "目前無法更新回報內容，請稍後再試。");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [currentReportId, currentUser]);
 
   async function handleSendComment() {
     if (isSending) {
@@ -276,11 +334,21 @@ export default function DetailPage() {
       </View>
 
       <ScrollView
+        alwaysBounceVertical
         contentContainerStyle={[
           styles.content,
           { paddingBottom: 24 },
         ]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.special}
+            colors={[colors.special]}
+            progressBackgroundColor={colors.white}
+          />
+        }
         showsVerticalScrollIndicator={false}
         style={styles.scrollView}
       >
@@ -306,7 +374,7 @@ export default function DetailPage() {
               ))
             ) : (
               <View style={styles.tag}>
-                <Text style={styles.tagText}>未分類</Text>
+                <Text style={styles.tagText}>#未分類</Text>
               </View>
             )}
           </View>
