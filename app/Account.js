@@ -20,7 +20,7 @@ import {
   Image,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { onAuthStateChanged,signOut,deleteUser } from "firebase/auth";
+import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 2. 引入 Firestore 相關語法
@@ -28,7 +28,6 @@ import { collection, query, where, orderBy, onSnapshot, collectionGroup } from "
 
 import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實例)
 import { colors, fontSizes } from "./constants/theme";
-import BottomNavigation from "./components/BottomNavigation";
 
 export default function AccountPage() {
   const [currentView, setCurrentView] = useState("profile"); // "profile" 或 "settings"
@@ -127,6 +126,16 @@ export default function AccountPage() {
     };
   }, [currentUser]);
 
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      router.replace("/Login");
+    } catch (error) {
+      console.error("登出失敗:", error);
+      Alert.alert("登出失敗", "目前無法登出，請稍後再試。");
+    }
+  }
+
 
 
 const renderItem = ({ item }) => {
@@ -223,17 +232,23 @@ const renderItem = ({ item }) => {
         {/* 頂部導航 */}
         <View style={styles.settingsHeader}>
           <Pressable onPress={() => setCurrentView("profile")} style={{ padding: 8 }}>
-            <Text style={{ fontSize: 22, fontWeight: "bold" }}>❮</Text>
+            <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold" }}>❮</Text>
           </Pressable>
-          <Text style={{ fontSize: 22, fontWeight: "bold", color: "#000000" }}>設定</Text>
+          <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: "#000000" }}>設定</Text>
           <View style={{ width: 32 }} />
         </View>
 
         {/* 大頭貼 */}
         <View style={styles.avatarSection}>
+<<<<<<< HEAD
 <View style={styles.avatarPlaceholder}>
   <Image source={accountCircle} style={styles.avatarImage} />
 </View>
+=======
+          <View style={styles.avatarPlaceholderLarge}>
+            <Text style={{ fontSize: fontSizes.displayLarge }}>👤</Text>
+          </View>
+>>>>>>> upstream/main
           <Pressable><Text style={styles.editAvatarText}>編輯頭像</Text></Pressable>
         </View>
 
@@ -307,7 +322,11 @@ const renderItem = ({ item }) => {
             onPress={() => {
               Alert.alert("登出帳號", "確定要登出嗎？", [
                 { text: "取消", style: "cancel" },
+<<<<<<< HEAD
                 { text: "確定", style: "destructive", onPress: () => signOut(auth) }
+=======
+                { text: "確定", style: "destructive", onPress: handleSignOut }
+>>>>>>> upstream/main
               ]);
             }}
           >
@@ -338,13 +357,20 @@ const renderItem = ({ item }) => {
       {/* 1. 頂部個人資訊 */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
+<<<<<<< HEAD
 <View style={styles.avatarPlaceholderLarge}>
   <Image source={accountCircle} style={styles.avatarImage} />
 </View>
+=======
+          <View style={styles.avatarPlaceholder}>
+            <Text style={{ fontSize: fontSizes.display }}>👤</Text>
+          </View>
+>>>>>>> upstream/main
 <Text style={styles.userName}>
   {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
 </Text>
         </View>
+<<<<<<< HEAD
        <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
   <Image 
     source={settingsIcon} 
@@ -355,6 +381,11 @@ const renderItem = ({ item }) => {
   />
 </Pressable>
 
+=======
+        <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
+          <Text style={{ fontSize: fontSizes.heading }}>⚙️</Text>
+        </Pressable>
+>>>>>>> upstream/main
       </View>
 
       {/* 2. 數據看板 */}
@@ -379,12 +410,15 @@ const renderItem = ({ item }) => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+<<<<<<< HEAD
 {currentView === "profile" && (
         <View style={[styles.navigation, { paddingBottom: insets.bottom }]}>
           <BottomNavigation activeTab="profile" /> 
     
         </View>
       )}
+=======
+>>>>>>> upstream/main
     </View>
   );
 }
@@ -422,7 +456,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   userName: {
-    fontSize: 22,
+    fontSize: fontSizes.titleLarge,
     fontWeight: "bold",
     marginLeft: 16,
     color: "#1A1A1A",
@@ -449,12 +483,12 @@ const styles = StyleSheet.create({
     borderRightColor: "rgba(255, 255, 255, 0.3)",
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: fontSizes.heading,
     fontWeight: "bold",
     color: "#FFFFFF",
   },
   statLabel: {
-    fontSize: 13,
+    fontSize: fontSizes.labelSmall,
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 4,
   },
@@ -483,11 +517,11 @@ const styles = StyleSheet.create({
 
   },
   iconPlaceholder: {
-    fontSize: 24,
+    fontSize: fontSizes.heading,
     marginBottom: 4,
   },
   cardTypeText: {
-    fontSize: 12,
+    fontSize: fontSizes.small,
     fontWeight: "bold",
     color: "#1A1A1A",
   },
@@ -496,13 +530,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
     color: "#000000",
     marginBottom: 4,
   },
   cardSubText: {
-    fontSize: 12,
+    fontSize: fontSizes.small,
     color: "#888888",
     marginTop: 2,
   },
@@ -510,9 +544,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   arrow: {
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     color: "#CCCCCC",
   },
+<<<<<<< HEAD
   navigation: {
     position: "absolute",
     bottom: 0,
@@ -525,6 +560,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,            
     borderTopColor: "#E0E0E0",
   },
+=======
+>>>>>>> upstream/main
   // 🎯 請把這些新樣式貼進原本的 StyleSheet.create 裡面：
   settingsHeader: {
     flexDirection: "row",
@@ -547,13 +584,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   editAvatarText: {
-    fontSize: 14,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "bold",
     color: "#000000",
     marginTop: 12,
   },
   sectionTitle: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "bold",
     color: "#000000",
     marginLeft: 24,
@@ -580,16 +617,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   rowIcon: {
-    fontSize: 18,
+    fontSize: fontSizes.titleSmall,
     marginRight: 12,
   },
   rowLabel: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "600",
     color: "#000000",
   },
   rowValue: {
-    fontSize: 15,
+    fontSize: fontSizes.body,
     fontWeight: "600",
     color: "#777777",
     maxWidth: 180,
@@ -610,7 +647,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: "#FF5B5B",
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
   },
   deleteButton: {
@@ -622,7 +659,7 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
   },
   // 🎯 3. 確保最底下的 styles 有這一條，控制設定選單小圖示的大小
@@ -685,4 +722,3 @@ const styles = StyleSheet.create({
     marginRight: 4,             // 與時間文字的小間距
   },
 });
-

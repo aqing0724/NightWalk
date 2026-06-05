@@ -15,6 +15,7 @@ import { colors } from "../constants/theme";
 
 const homeIcon = require("../../assets/home.png");
 const homeActiveIcon = require("../../assets/home-on.png");
+const plusIcon = require("../../assets/Plus.png");
 const userIcon = require("../../assets/user.png");
 const userActiveIcon = require("../../assets/user-on.png");
 
@@ -133,20 +134,13 @@ export default function BottomNavigation() {
           {renderItem({
             accessibilityLabel: "Add",
             icon: (
-              <View style={styles.addIcon}>
-                <View
-                  style={[
-                    styles.addVertical,
-                    activeIndex === 1 ? styles.addStrokeActive : null,
-                  ]}
-                />
-                <View
-                  style={[
-                    styles.addHorizontal,
-                    activeIndex === 1 ? styles.addStrokeActive : null,
-                  ]}
-                />
-              </View>
+              <Image
+                source={plusIcon}
+                style={[
+                  styles.addIcon,
+                  activeIndex === 1 ? styles.navIconActive : null,
+                ]}
+              />
             ),
             onPress: handleAddPress,
           })}
@@ -228,29 +222,13 @@ const styles = StyleSheet.create({
   },
   navIconActive: {
     opacity: 1,
-    tintColor: colors.specialDark,
+    tintColor: colors.special,
   },
   addIcon: {
-    width: 26,
-    height: 26,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addVertical: {
-    position: "absolute",
-    width: 3,
-    height: 26,
-    borderRadius: 1.5,
-    backgroundColor: colors.black,
-  },
-  addHorizontal: {
-    position: "absolute",
-    width: 26,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: colors.black,
-  },
-  addStrokeActive: {
-    backgroundColor: colors.specialDark,
+    width: 46,
+    height: 46,
+    opacity: 0.82,
+    resizeMode: "contain",
+    tintColor: colors.black,
   },
 });

@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 20,
     borderRadius: 16,
-    backgroundColor: colors.specialDark,
+    backgroundColor: colors.special,
     alignItems: "center",
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 4 },
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   checkMark: {
-    color: colors.specialDark,
+    color: colors.special,
     fontSize: fontSizes.title,
     fontWeight: "900",
     lineHeight: 25,

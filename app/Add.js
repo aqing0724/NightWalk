@@ -5,7 +5,9 @@ import {
   Animated,
   Easing,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -20,7 +22,16 @@ import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,9 +39,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { auth, db, storage } from "../firebase";
 import { colors, fontSizes } from "./constants/theme";
 
-const theftIcon = require("../assets/Theft.png");
-const harassIcon = require("../assets/Harass.png");
-const trackIcon = require("../assets/Track.png");
 const imageIcon = require("../assets/image.png");
 const mapPinIcon = require("../assets/marker.png");
 
@@ -47,11 +55,13 @@ const reportRegion = {
 
 const googleMapsApiKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 const maxPhotoCount = 5;
+const maxDangerTypeSuggestionCount = 4;
+const dangerTypeSuggestionDelay = 450;
 
 const dangerTypes = [
-  { id: "theft", label: "偷竊", icon: theftIcon },
-  { id: "harass", label: "騷擾", icon: harassIcon },
-  { id: "track", label: "跟蹤", icon: trackIcon },
+  { id: "theft", label: "偷竊" },
+  { id: "harass", label: "騷擾" },
+  { id: "track", label: "跟蹤" },
 ];
 
 function buildGeocodingQueries(searchText) {
@@ -115,6 +125,28 @@ function formatCurrentAddress(address) {
   ]
     .filter((part, index, parts) => part && parts.indexOf(part) === index)
     .join("");
+}
+
+function createCustomTypeId(typeLabel) {
+  return `custom:${typeLabel}`;
+}
+
+function getDangerTypeLabel(typeId, typeOptions) {
+  const matchingType = typeOptions.find((type) => type.id === typeId);
+
+  return matchingType?.label || typeId.replace(/^custom:/, "");
+}
+
+function createCustomTypeDocId(typeLabel) {
+  return `custom-${encodeURIComponent(typeLabel)}`;
+}
+
+function normalizeCustomTypeText(typeText) {
+  return typeText.trim().replace(/^#+/, "").trim();
+}
+
+function formatCustomTypeText(typeLabel) {
+  return `#${typeLabel}`;
 }
 
 async function uploadImageAsync(imageUri) {
@@ -220,6 +252,9 @@ export default function AddPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
+  const scrollViewRef = useRef(null);
+  const customTypeInputYRef = useRef(0);
+  const descriptionInputYRef = useRef(0);
   const hasSearchedLocationRef = useRef(false);
   const hasEditedLocationTextRef = useRef(false);
   const isSearchingLocationRef = useRef(false);
@@ -227,12 +262,16 @@ export default function AddPage() {
   const successScale = useRef(new Animated.Value(0.65)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
   const successNavigationTimeoutRef = useRef(null);
+  const submissionCanceledRef = useRef(false);
   const [selectedLocation, setSelectedLocation] = useState(reportLocation);
   const [mapRegion, setMapRegion] = useState(reportRegion);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [locationText, setLocationText] = useState("");
   const [description, setDescription] = useState("");
   const [selectedTypes, setSelectedTypes] = useState([]);
+  const [customTypeText, setCustomTypeText] = useState("");
+  const [debouncedCustomTypeText, setDebouncedCustomTypeText] = useState("");
+  const [customDangerTypes, setCustomDangerTypes] = useState([]);
   const [selectedImages, setSelectedImages] = useState([]);
   const [isPickingImage, setIsPickingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -243,6 +282,7 @@ export default function AddPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
   const [locationRefreshCount, setLocationRefreshCount] = useState(0);
+  const dangerTypeSuggestions = [...dangerTypes, ...customDangerTypes];
 
   useEffect(() => {
     if (submissionStage === "submitting") {
@@ -294,6 +334,14 @@ export default function AddPage() {
   );
 
   useEffect(() => {
+    const suggestionTimeout = setTimeout(() => {
+      setDebouncedCustomTypeText(customTypeText);
+    }, dangerTypeSuggestionDelay);
+
+    return () => clearTimeout(suggestionTimeout);
+  }, [customTypeText]);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setAuthChecked(true);
@@ -301,14 +349,43 @@ export default function AddPage() {
       if (!user) {
         setIsFindingLocation(false);
         setIsRefreshing(false);
-        Alert.alert("請先登入", "登入後才能新增危險地點回報。", [
-          { text: "前往登入", onPress: () => router.replace("/Login") },
-        ]);
+        router.replace("/Login");
       }
     });
 
     return unsubscribe;
   }, [router]);
+
+  useEffect(() => {
+    const customTypesQuery = query(
+      collection(db, "dangerTypes"),
+      orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(
+      customTypesQuery,
+      (snapshot) => {
+        setCustomDangerTypes(
+          snapshot.docs
+            .map((customTypeDoc) => {
+              const data = customTypeDoc.data();
+              const label = normalizeCustomTypeText(data.label || "");
+
+              return label
+                ? {
+                    id: createCustomTypeId(label),
+                    label,
+                  }
+                : null;
+            })
+            .filter(Boolean)
+        );
+      },
+      (error) => {
+        console.error("Failed to load custom danger types:", error);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     if (!authChecked || !currentUser) {
@@ -481,6 +558,7 @@ export default function AddPage() {
     setLocationText("");
     setDescription("");
     setSelectedTypes([]);
+    setCustomTypeText("");
     setSelectedImages([]);
     setIsSearchingLocation(false);
     setIsFindingLocation(true);
@@ -488,12 +566,107 @@ export default function AddPage() {
     setLocationRefreshCount((currentCount) => currentCount + 1);
   }
 
-  function toggleDangerType(typeId) {
+  function selectDangerType(typeId) {
     setSelectedTypes((currentTypes) =>
-      currentTypes.includes(typeId)
-        ? currentTypes.filter((id) => id !== typeId)
-        : [...currentTypes, typeId]
+      currentTypes.includes(typeId) ? currentTypes : [...currentTypes, typeId]
     );
+  }
+
+  function removeDangerType(typeId) {
+    setSelectedTypes((currentTypes) =>
+      currentTypes.filter((currentTypeId) => currentTypeId !== typeId)
+    );
+  }
+
+  async function addCustomType(customTypeLabel) {
+    const matchingPresetType = dangerTypes.find(
+      (type) => type.label === customTypeLabel
+    );
+    const nextTypeId = matchingPresetType
+      ? matchingPresetType.id
+      : createCustomTypeId(customTypeLabel);
+
+    if (!matchingPresetType) {
+      await setDoc(
+        doc(db, "dangerTypes", createCustomTypeDocId(customTypeLabel)),
+        {
+          id: nextTypeId,
+          label: customTypeLabel,
+          visibility: "public",
+          createdBy: auth.currentUser?.uid || null,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    selectDangerType(nextTypeId);
+    setCustomTypeText("");
+  }
+
+  async function handleSelectExistingCustomType(customType) {
+    selectDangerType(customType.id);
+    setCustomTypeText("");
+  }
+
+  function handleCreateCustomType(typeLabel) {
+    const customTypeLabel = normalizeCustomTypeText(typeLabel);
+
+    if (!customTypeLabel) {
+      return;
+    }
+
+    const exactExistingType = dangerTypeSuggestions.find(
+      (type) =>
+        type.label.toLocaleLowerCase() === customTypeLabel.toLocaleLowerCase()
+    );
+
+    if (exactExistingType) {
+      selectDangerType(exactExistingType.id);
+      setCustomTypeText("");
+      return;
+    }
+
+    Alert.alert(
+      "確認新增標籤",
+      `確定要新增「#${customTypeLabel}」嗎？`,
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "新增",
+          onPress: async () => {
+            try {
+              await addCustomType(customTypeLabel);
+            } catch (error) {
+              console.error("Failed to save custom danger type:", error);
+              Alert.alert("新增失敗", "目前無法儲存這個標籤，請稍後再試。");
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  function handleAddCustomType() {
+    handleCreateCustomType(customTypeText);
+  }
+
+  function handleCustomTypeInputFocus() {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(customTypeInputYRef.current - 90, 0),
+        animated: true,
+      });
+    }, 80);
+  }
+
+  function handleDescriptionInputFocus() {
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(descriptionInputYRef.current - 160, 0),
+        animated: true,
+      });
+    }, 80);
   }
 
   function addSelectedImages(images) {
@@ -608,6 +781,7 @@ export default function AddPage() {
 
     setIsSubmitting(true);
     setSubmissionStage("submitting");
+    submissionCanceledRef.current = false;
     let reportSubmitted = false;
 
     try {
@@ -615,6 +789,10 @@ export default function AddPage() {
 
       for (const image of selectedImages) {
         imageUrls.push(await uploadImageAsync(image.uri));
+
+        if (submissionCanceledRef.current) {
+          return;
+        }
       }
 
       await addDoc(collection(db, "reports"), {
@@ -622,6 +800,7 @@ export default function AddPage() {
         selectedAddress,
         description: description.trim(),
         types: selectedTypes,
+        markerType: selectedTypes[0],
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
         imageUrl: imageUrls[0] || "",
@@ -632,10 +811,15 @@ export default function AddPage() {
         createdAt: serverTimestamp(),
       });
 
+      if (submissionCanceledRef.current) {
+        return;
+      }
+
       setLocationText("");
       setSelectedAddress("");
       setDescription("");
       setSelectedTypes([]);
+      setCustomTypeText("");
       setSelectedImages([]);
       reportSubmitted = true;
       setSubmissionStage("success");
@@ -651,7 +835,9 @@ export default function AddPage() {
         serverResponse: error.serverResponse || error.customData?.serverResponse,
       });
       setSubmissionStage("idle");
-      Alert.alert("送出失敗", getUploadErrorMessage(error));
+      if (!submissionCanceledRef.current) {
+        Alert.alert("送出失敗", getUploadErrorMessage(error));
+      }
     } finally {
       if (!reportSubmitted) {
         setIsSubmitting(false);
@@ -659,8 +845,50 @@ export default function AddPage() {
     }
   }
 
+  function handleCancelSubmit() {
+    submissionCanceledRef.current = true;
+    setSubmissionStage("idle");
+    setIsSubmitting(false);
+  }
+
+  const customTypeQuery = normalizeCustomTypeText(customTypeText);
+  const debouncedCustomTypeQuery = normalizeCustomTypeText(
+    debouncedCustomTypeText
+  );
+  const availableDangerTypeSuggestions = dangerTypeSuggestions.filter(
+    (customType) => !selectedTypes.includes(customType.id)
+  );
+  const matchingCustomTypeSuggestions = debouncedCustomTypeQuery
+    ? availableDangerTypeSuggestions
+        .filter((customType) =>
+          customType.label
+            .toLocaleLowerCase()
+            .includes(debouncedCustomTypeQuery.toLocaleLowerCase())
+        )
+        .slice(0, maxDangerTypeSuggestionCount)
+    : availableDangerTypeSuggestions.slice(0, maxDangerTypeSuggestionCount);
+  const hasExactCustomTypeMatch = dangerTypeSuggestions.some(
+    (customType) =>
+      customType.label.toLocaleLowerCase() ===
+      debouncedCustomTypeQuery.toLocaleLowerCase()
+  );
+  const shouldShowCustomTypeSuggestions =
+    Boolean(debouncedCustomTypeQuery) &&
+    customTypeQuery === debouncedCustomTypeQuery;
+  const shouldShowCreateCustomType =
+    shouldShowCustomTypeSuggestions &&
+    !hasExactCustomTypeMatch;
+  const selectedDangerTypeOptions = selectedTypes.map((typeId) => ({
+    id: typeId,
+    label: getDangerTypeLabel(typeId, dangerTypeSuggestions),
+  }));
+
   return (
-    <View style={styles.screen}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+      style={styles.screen}
+    >
       <StatusBar
         barStyle="dark-content"
         backgroundColor={colors.background}
@@ -678,7 +906,7 @@ export default function AddPage() {
         <Text style={styles.title}>回報危險地點</Text>
         {isRefreshing ? (
           <ActivityIndicator
-            color={colors.specialDark}
+            color={colors.special}
             size="small"
             style={styles.refreshIndicator}
           />
@@ -686,6 +914,7 @@ export default function AddPage() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[
           styles.content,
           {
@@ -695,13 +924,14 @@ export default function AddPage() {
         ]}
         refreshControl={
           <RefreshControl
-            colors={[colors.specialDark]}
+            colors={[colors.special]}
             enabled={!isSubmitting}
             onRefresh={handleRefresh}
             refreshing={isRefreshing}
-            tintColor={colors.specialDark}
+            tintColor={colors.special}
           />
         }
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapCard}>
@@ -777,33 +1007,98 @@ export default function AddPage() {
           <Text style={styles.selectedAddress}>{selectedAddress}</Text>
         ) : null}
 
-        <Text style={styles.sectionTitle}>2.選擇危險類型(可複選)</Text>
-        <View style={styles.optionRow}>
-          {dangerTypes.map((item) => (
-            <Pressable
-              key={item.id}
-              accessibilityLabel={item.label}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: selectedTypes.includes(item.id) }}
-              onPress={() => toggleDangerType(item.id)}
-              style={[
-                styles.optionCard,
-                selectedTypes.includes(item.id)
-                  ? styles.optionCardSelected
-                  : null,
-              ]}
-            >
-              <Image source={item.icon} style={styles.dangerTypeIcon} />
-              <Text style={styles.optionLabel}>{item.label}</Text>
-            </Pressable>
-          ))}
+        <Text style={styles.sectionTitle}>2.＃危險標籤</Text>
+        {selectedDangerTypeOptions.length ? (
+          <View style={styles.optionRow}>
+            {selectedDangerTypeOptions.map((item) => (
+              <Pressable
+                key={item.id}
+                accessibilityLabel={`Remove ${formatCustomTypeText(
+                  item.label
+                )}`}
+                accessibilityRole="button"
+                onPress={() => removeDangerType(item.id)}
+                style={[styles.optionCard, styles.optionCardSelected]}
+              >
+                <Text style={styles.optionRemove}>×</Text>
+                <Text style={styles.dangerTypeHash}>#</Text>
+                <Text style={styles.optionLabel}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View
+          style={styles.customTypeBox}
+          onLayout={(event) => {
+            customTypeInputYRef.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <TextInput
+            accessibilityLabel="Add custom danger type"
+            autoCorrect={false}
+            blurOnSubmit={false}
+            enablesReturnKeyAutomatically
+            placeholder="ex. 偷拍"
+            placeholderTextColor={colors.special}
+            returnKeyType="done"
+            style={styles.customTypeInput}
+            value={customTypeText}
+            onChangeText={setCustomTypeText}
+            onFocus={handleCustomTypeInputFocus}
+            onSubmitEditing={handleAddCustomType}
+          />
         </View>
-        <Text style={styles.moreText}>更多...</Text>
+        {shouldShowCustomTypeSuggestions ? (
+          <View style={styles.customTypeSuggestions}>
+            {matchingCustomTypeSuggestions.map((customType) => (
+              <Pressable
+                key={customType.id}
+                accessibilityLabel={`Select ${formatCustomTypeText(
+                  customType.label
+                )}`}
+                accessibilityRole="button"
+                onPress={() => handleSelectExistingCustomType(customType)}
+                style={styles.customTypeSuggestion}
+              >
+                <Text style={styles.customTypeSuggestionHash}>#</Text>
+                <Text style={styles.customTypeSuggestionText}>
+                  {customType.label}
+                </Text>
+              </Pressable>
+            ))}
+            {shouldShowCreateCustomType ? (
+              <Pressable
+                accessibilityLabel={`Create ${formatCustomTypeText(
+                  customTypeQuery
+                )}`}
+                accessibilityRole="button"
+                onPress={() => handleCreateCustomType(customTypeQuery)}
+                style={[
+                  styles.customTypeSuggestion,
+                  styles.customTypeCreateSuggestion,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.customTypeSuggestionText,
+                    styles.customTypeCreateSuggestionText,
+                  ]}
+                >
+                  建立 {formatCustomTypeText(customTypeQuery)}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
         <Text style={styles.sectionTitle}>3.情況說明</Text>
         <TextInput
           accessibilityLabel="Describe situation"
           multiline
+          onFocus={handleDescriptionInputFocus}
+          onLayout={(event) => {
+            descriptionInputYRef.current = event.nativeEvent.layout.y;
+          }}
           placeholder="請簡單描述您看到的情況..."
           placeholderTextColor={colors.special}
           style={styles.largeInput}
@@ -882,12 +1177,7 @@ export default function AddPage() {
         <View
           accessibilityLiveRegion="polite"
           accessibilityViewIsModal
-          style={[
-            styles.submissionOverlay,
-            submissionStage === "success"
-              ? styles.submissionOverlayCentered
-              : { paddingTop: Math.max(insets.top, 18) + 96 },
-          ]}
+          style={[styles.submissionOverlay, styles.submissionOverlayCentered]}
         >
           {submissionStage === "submitting" ? (
             <View style={styles.submissionCard}>
@@ -917,6 +1207,14 @@ export default function AddPage() {
               <Text style={styles.submissionDescription}>
                 請稍候，我們正在上傳資料...
               </Text>
+              <Pressable
+                accessibilityLabel="Cancel report submission"
+                accessibilityRole="button"
+                onPress={handleCancelSubmit}
+                style={styles.cancelSubmitButton}
+              >
+                <Text style={styles.cancelSubmitButtonText}>取消送出</Text>
+              </Pressable>
             </View>
           ) : (
             <View style={styles.submissionCard}>
@@ -939,7 +1237,7 @@ export default function AddPage() {
           )}
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1068,17 +1366,21 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   optionRow: {
-    marginTop: 11,
+    marginTop: 8,
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
+    columnGap: 8,
+    rowGap: 8,
   },
   optionCard: {
-    width: "31%",
-    height: 89,
+    minHeight: 32,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderWidth: 2,
     borderColor: colors.white,
     borderRadius: 8,
     backgroundColor: colors.white,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1086,26 +1388,80 @@ const styles = StyleSheet.create({
     borderColor: colors.special,
     backgroundColor: colors.background,
   },
-  dangerTypeIcon: {
-    width: 34,
-    height: 34,
-    resizeMode: "contain",
-    paddingTop:0,
+  optionRemove: {
+    marginRight: 5,
+    color: colors.special,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  dangerTypeHash: {
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
+    lineHeight: 18,
   },
   optionLabel: {
-    marginTop: 9,
+    marginLeft: 5,
     color: colors.black,
-    fontSize: fontSizes.titleSmall,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "900",
-    lineHeight: 24,
+    lineHeight: 18,
     textAlign: "center",
   },
-  moreText: {
-    marginTop: 8,
+  customTypeBox: {
+    height: 46,
+    marginTop: 10,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    flexDirection: "row",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  customTypeInput: {
+    flex: 1,
+    height: "100%",
+    paddingHorizontal: 13,
     color: colors.black,
-    fontSize: fontSizes.bodyLarge,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "800",
+  },
+  customTypeSuggestions: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  customTypeSuggestion: {
+    minHeight: 34,
+    marginRight: 8,
+    marginBottom: 8,
+    paddingHorizontal: 11,
+    borderRadius: 8,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  customTypeCreateSuggestion: {
+    borderColor: colors.special,
+    backgroundColor: colors.specialSoft,
+  },
+  customTypeSuggestionHash: {
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
     fontWeight: "900",
-    lineHeight: 21,
+    lineHeight: 20,
+  },
+  customTypeSuggestionText: {
+    marginLeft: 5,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "800",
+    lineHeight: 20,
+  },
+  customTypeCreateSuggestionText: {
+    marginLeft: 0,
   },
   photoButton: {
     width: 110,
@@ -1233,8 +1589,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   successCheck: {
-    color: colors.specialDark,
-    fontSize: 45,
+    color: colors.special,
+    fontSize: fontSizes.successMark,
     fontWeight: "900",
     lineHeight: 52,
   },
@@ -1253,5 +1609,21 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 20,
     textAlign: "center",
+  },
+  cancelSubmitButton: {
+    minWidth: 110,
+    height: 36,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelSubmitButtonText: {
+    color: colors.special,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
+    lineHeight: 20,
   },
 });

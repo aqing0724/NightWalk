@@ -4,7 +4,6 @@ export const colors = {
   white: "#FFFFFF",
   background: "#F7F7F7",
   special: "#A6BAAE",
-  specialDark: "#647D70",
   specialSoft: "#E5ECE8",
   red: "#FF8080",
   surfaceMuted: "#F0F0F0",
@@ -24,5 +23,10 @@ export const fontSizes = {
   titleSmall: 18,
   titleMedium: 19,
   title: 20,
+  titleLarge: 22,
   heading: 24,
+  headingLarge: 28,
+  display: 40,
+  displayLarge: 44,
+  successMark: 45,
 };
