@@ -25,7 +25,12 @@ import {
   orderBy,
   query,
   serverTimestamp,
+<<<<<<< HEAD
+  deleteDoc, 
+  getDocs,
+=======
   setDoc,
+>>>>>>> upstream/main
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -373,7 +378,10 @@ export default function DetailPage() {
 
     const nextMessage = message.trim();
     const user = auth.currentUser;
-
+    if (!report || !currentReportId) {
+      Alert.alert("操作失敗", "該筆危險回報已被刪除，無法再發表評論。");
+      return;
+    }
     if (!currentReportId) {
       Alert.alert("無法留言", "缺少回報資料，請從回報列表重新進入。");
       return;
@@ -402,6 +410,7 @@ export default function DetailPage() {
         userId: user.uid,
         userName: user.displayName || "NightWalk 使用者",
         createdAt: serverTimestamp(),
+        locationText: locationText,
       });
 
       setMessage("");
@@ -470,12 +479,215 @@ export default function DetailPage() {
   const warningIcon = redDangerIcon;
 
   return (
+<<<<<<< HEAD
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      style={styles.screen}
+    >
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={colors.background}
+      />
+
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 18) }]}>
+        <Pressable
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={styles.backButton}
+        >
+          <Image source={chevronIcon} style={styles.backIcon} />
+        </Pressable>
+
+        <Text style={styles.headerTitle}>回報詳細頁</Text>
+
+{currentUser && report && report.userId === currentUser.uid ? (
+          <Pressable 
+            onPress={handleDeleteReport} 
+            hitSlop={12} 
+            style={styles.deleteHeaderButton}
+          >
+            {/* 💡 垃圾桶圖示可以直接使用 Emoji 🗑️ 或你專案內的垃圾桶本機圖檔 */}
+            <Text style={{ fontSize: 26 }}>🗑️</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
+      </View>
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: 24 },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={styles.scrollView}
+      >
+        <View style={styles.reportCard}>
+          <View style={styles.reportHeader}>
+            <Image source={warningIcon} style={styles.warningIcon} />
+
+            <View style={styles.reportTitleGroup}>
+              <Text style={styles.reportTitle}>危險回報</Text>
+              <View style={styles.locationRow}>
+                <Image source={mapPinIcon} style={styles.locationIcon} />
+                <Text style={styles.locationText}>{locationText}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.tagRow}>
+            {typeList.length ? (
+              typeList.map((type) => (
+                <View key={type} style={styles.tag}>
+                  <Text style={styles.tagText}>{typeLabels[type] || type}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>未分類</Text>
+              </View>
+            )}
+          </View>
+
+          <Text style={styles.description}>
+            {report?.description || "尚未提供情況說明。"}
+          </Text>
+        </View>
+
+        {imageUrls.length ? (
+          <ScrollView
+            contentContainerStyle={styles.reportImageRow}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+          >
+            {imageUrls.map((imageUrl, index) => (
+              <View key={`${imageUrl}-${index}`} style={styles.reportImageCard}>
+                <Image
+                  accessibilityLabel={`Report photo ${index + 1}`}
+                  resizeMode="cover"
+                  source={{ uri: imageUrl }}
+                  style={styles.reportImage}
+                />
+              </View>
+            ))}
+          </ScrollView>
+        ) : null}
+
+        <View style={styles.voteCard}>
+          <View style={styles.voteTitleRow}>
+            <Text style={styles.sectionTitle}>社群驗證</Text>
+            <Text style={styles.voteHint}>(已有 {voteCount} 人投票)</Text>
+          </View>
+
+          <View style={styles.voteRow}>
+            <Pressable
+              accessibilityLabel="Mark report as credible"
+              accessibilityRole="button"
+              disabled={isVoting}
+              onPress={() => handleVote("credible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "credible" ? styles.voteButtonActive : null,
+              ]}
+            >
+              <Image
+                source={
+                  selectedVote === "credible"
+                    ? thumbsUpActiveIcon
+                    : thumbsUpIcon
+                }
+                style={styles.voteIcon}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "credible" ? styles.voteTextActive : null,
+                ]}
+              >
+                可信({credibleCount})
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityLabel="Mark report as not credible"
+              accessibilityRole="button"
+              disabled={isVoting}
+              onPress={() => handleVote("notCredible")}
+              style={[
+                styles.voteButton,
+                selectedVote === "notCredible" ? styles.voteButtonActive : null,
+              ]}
+            >
+              <Image
+                source={
+                  selectedVote === "notCredible"
+                    ? thumbsDownActiveIcon
+                    : thumbsDownIcon
+                }
+                style={styles.voteIcon}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  selectedVote === "notCredible" ? styles.voteTextActive : null,
+                ]}
+              >
+                不可信({notCredibleCount})
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <Text style={styles.commentTitle}>留言與評論</Text>
+
+        <View style={styles.commentList}>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentCard}>
+              <View style={styles.commentHeader}>
+                <Image source={accountIcon} style={styles.avatarIcon} />
+                <Text style={styles.commentName}>
+                  {comment.userName || "匿名使用者"}
+                </Text>
+              </View>
+              <Text style={styles.commentMessage}>{comment.message}</Text>
+            </View>
+          ))}
+        </View>
+
+      </ScrollView>
+
+      <View
+        style={[
+          styles.inputBar,
+          { paddingBottom: Math.max(insets.bottom, 26) },
+        ]}
+      >
+        <View style={styles.inputCard}>
+          <Image source={accountIcon} style={styles.inputAvatarIcon} />
+          <TextInput
+            accessibilityLabel="Write a comment"
+            editable={!isSending}
+            maxLength={500}
+            onChangeText={setMessage}
+            onSubmitEditing={handleSendComment}
+            placeholder={
+              currentUser ? "發表你的評論..." : "登入後才能發表評論"
+            }
+            placeholderTextColor={colors.special}
+            returnKeyType="send"
+            style={styles.commentInput}
+            value={message}
+=======
     <View style={styles.screen}>
       <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
           <StatusBar
             barStyle="dark-content"
             backgroundColor={colors.background}
+>>>>>>> upstream/main
           />
 
           <View
@@ -738,6 +950,52 @@ export default function DetailPage() {
       </TouchableWithoutFeedback>
     </View>
   );
+
+// 🎯 2. 新增刪除回報與二度確認邏輯
+// 🎯 方案二：刪除回報時，連帶永久刪除地底下的所有子評論
+  async function handleDeleteReport() {
+    if (!currentReportId) return;
+
+    // 跳出第一層防護：Alert 詢問
+    Alert.alert(
+      "刪除回報", 
+      "您確定要刪除這筆危險地點回報嗎？此操作將無法復原，且底下的所有留言與評論會被永久抹除。", 
+      [
+        { text: "取消", style: "cancel" },
+        { 
+          text: "確定刪除", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              // 1. 先抓取該回報底下的 comments 子集合參照
+              const commentsRef = collection(db, "reports", currentReportId, "comments");
+              const commentsSnapshot = await getDocs(commentsRef);
+              
+              // 2. 將所有子評論的刪除動作打包成 Promise 陣列
+              const deleteCommentsPromises = commentsSnapshot.docs.map((commentDoc) => 
+                deleteDoc(doc(db, "reports", currentReportId, "comments", commentDoc.id))
+              );
+              
+              // 3. 同步並行執行所有評論的刪除，確保全部清空
+              await Promise.all(deleteCommentsPromises);
+
+              // 4. 最後回頭刪除最外層的「回報主文件」
+              await deleteDoc(doc(db, "reports", currentReportId));
+              
+              Alert.alert("刪除成功", "該筆回報及其所有相關評論已成功移除。");
+              
+              // 刪除成功後，自動返回個人主頁，主頁的即時監聽會自動扣除數量
+              router.back(); 
+            } catch (error) {
+              console.error("連帶刪除失敗:", error);
+              Alert.alert("操作失敗", "目前無法完整刪除該資料，請稍後再試。");
+            }
+          } 
+        }
+      ]
+    );
+  }
+
 }
 const styles = StyleSheet.create({
   screen: {

@@ -1,3 +1,12 @@
+const settingsIcon = require("../assets/settings.png"); 
+const nightModeIcon = require("../assets/Moon.png");
+const accountCircle = require("../assets/account_circle.png");
+const messageSquare = require("../assets/Messagesquare.png"); 
+const mailIcon = require("../assets/Mail2.png");
+const compassIcon = require("../assets/Compass.png");
+const typeIcon = require("../assets/Type.png");
+const clockIcon = require("../assets/Clock.png");
+
 import { useEffect, useState } from "react"; // 1. 確保有引入 useEffect 和 useState
 import {
   StatusBar,
@@ -7,14 +16,15 @@ import {
   Pressable,
   FlatList,
   Switch,
-  Alert
+  Alert,
+  Image,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 2. 引入 Firestore 相關語法
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore"; 
+import { collection, query, where, orderBy, onSnapshot, collectionGroup } from "firebase/firestore"; 
 
 import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實例)
 import { colors, fontSizes } from "./constants/theme";
@@ -43,35 +53,77 @@ export default function AccountPage() {
     });
   }, [router]);
 
+  // 監聽回報與評論的大合體
   useEffect(() => {
     if (!currentUser) return;
 
-    const reportsQuery = query(
-      collection(db, "reports"),
-where("id", "==", currentUser.uid), // 
-       orderBy("createdAt", "desc")
-    );
+    let reportsData = [];
+    let commentsData = [];
 
-    // 開始即時監聽資料庫變更
-    const unsubscribe = onSnapshot(reportsQuery, (snapshot) => {
-      const fetchedReports = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      
-      setHistoryData(fetchedReports);
+    // 🎯 歷史紀錄大合體的更新函式
+    const updateHistoryList = () => {
+      // 把兩邊撈到的資料揉成一個陣列，並加上 type 標記方便 renderItem 識別
+      const combined = [
+        ...reportsData.map(item => ({ ...item, listType: "report" })),
+        ...commentsData.map(item => ({ ...item, listType: "comment" }))
+      ];
 
+      // 依據時間 (createdAt) 從新到舊排序
+      combined.sort((a, b) => {
+        const timeA = a.createdAt?.seconds || 0;
+        const timeB = b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      setHistoryData(combined);
+
+      const totalLikes = reportsData.reduce((sum, item) => {
+        return sum + (item.credibleCount || 0);
+      }, 0);
       // 自動更新數據看板中的「總回報數」
       setUserStats((prev) => ({
         ...prev,
-        reports: fetchedReports.length,
-        // 如果資料庫欄位有存按讚數，也可以在這邊加總計算
+        reports: reportsData.length,
+        likes: totalLikes,           // 🎯 讓這邊動起來！反映即時加總的讚數
       }));
+    };
+
+    // ─── 監聽 1：使用者發布的「回報」 ───
+    const reportsQuery = query(
+      collection(db, "reports"),
+      where("userId", "==", currentUser.uid),
+      orderBy("createdAt", "desc")
+    );
+    const unsubscribeReports = onSnapshot(reportsQuery, (snapshot) => {
+      reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      updateHistoryList();
+    }, (error) => console.error("讀取回報失敗:", error));
+
+    // ─── 監聽 2：跨貼文監聽使用者寫過的「評論」 ───
+    // 💡 這裡會去撈取所有 reports/*/comments 底下 userId 等於目前登入者的資料
+    const commentsQuery = query(
+      collectionGroup(db, "comments"),
+      where("userId", "==", currentUser.uid)
+    );
+    const unsubscribeComments = onSnapshot(commentsQuery, (snapshot) => {
+      commentsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        const reportSnapshot = doc.ref.parent.parent; // 找到父貼文的參照
+        const reportId = doc.ref.parent.parent?.id || ""; 
+        return { id: doc.id, reportId, 
+          locationText: data.locationText || "未知名稱",
+          ...data };
+      });
+      updateHistoryList();
     }, (error) => {
-      console.error("讀取 Firebase 失敗:", error);
+      console.error("讀取評論失敗，可能需要建立 Index 索引:", error);
     });
 
-    return unsubscribe; // 組件卸載時取消監聽
+    // 組件卸載時，把兩個對講機都關掉
+    return () => {
+      unsubscribeReports();
+      unsubscribeComments();
+    };
   }, [currentUser]);
 
   async function handleSignOut() {
@@ -85,33 +137,89 @@ where("id", "==", currentUser.uid), //
   }
 
 
-  // 渲染每一條歷史紀錄卡片
-  const renderItem = ({ item }) => (
-    <Pressable style={styles.card}>
-      <View style={styles.cardLeft}>
-        <Text style={styles.iconPlaceholder}>
-          {item.type === "report" ? "✉️" : "💬"}
-        </Text>
-        <Text style={styles.cardTypeText}>
-          {item.type === "report" ? "回報" : "評論"}
-        </Text>
-      </View>
 
-      <View style={styles.cardMiddle}>
-        {/* 💡 這裡的 item.locationText 和 item.createdAt 需對齊你們 Firebase 存的欄位名稱 */}
-        <Text style={styles.cardTitle}>{item.locationText || "未知名稱"}</Text>
-        <Text style={styles.cardSubText}>🙁 {item.tag || "一般"}</Text>
-        <Text style={styles.cardSubText}>
-          🕒 {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
-        </Text>
-      </View>
+const renderItem = ({ item }) => {
+    const isReport = item.listType === "report";
 
-      <View style={styles.cardRight}>
-        <Text style={styles.arrow}>❯</Text>
-      </View>
-    </Pressable>
-  );
+    return (
+      <Pressable 
+        style={styles.card} 
+        onPress={() => {
+          // 🎯 決定要跳轉的目標 reportId
+          const targetReportId = isReport ? item.id : item.reportId;
+          
+          if (targetReportId) {
+            router.push({
+              pathname: "/detail",
+              params: { reportId: targetReportId }
+            });
+          } else {
+            Alert.alert("提示", "無法追蹤該資料的原始回報頁面。");
+          }
+        }}
+      >
 
+        <View style={styles.cardLeft}>
+          <Image 
+            source={isReport ? mailIcon : messageSquare} 
+            style={[
+              styles.cardItemIcon, // 🎯 確保套用這個樣式來固定寬高
+              { tintColor: isDarkMode ? "#FFFFFF" : "#000000" } 
+            ]} 
+          />
+          <Text style={[styles.cardTypeText, { color: isDarkMode ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
+            {isReport ? "回報" : "評論"}
+          </Text>
+        </View>
+
+        {/* 卡片中間：動態顯示內文 */}
+{/* 卡片中間：動態顯示內文 */}
+        <View style={styles.cardMiddle}>
+          {isReport ? (
+            <>
+              <Text style={styles.cardTitle}>{item.locationText || "未知名稱"}</Text>
+              
+              <View style={styles.tagWrapper}>
+                <View style={styles.grayTag}>
+                  <Text style={styles.grayTagText}>
+                    {item.types && item.types.length > 0 
+                      ? item.types.map(t => t === "theft" ? "偷竊" : t === "harass" ? "騷擾" : t === "track" ? "跟蹤" : t).join(", ") 
+                      : "一般"}
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* 評論卡片 */}
+              <Text style={styles.cardTitle}>{item.locationText || "未知名稱"}</Text>
+              <Text style={styles.cardSubText} numberOfLines={1}>
+                {item.message || "空白內容"}
+              </Text>
+            </>
+          )}
+          
+          <View style={styles.timeRow}>
+            <Image 
+              source={clockIcon} 
+              style={[
+                styles.timeIcon, 
+                { tintColor: isDarkMode ? "#AAAAAA" : "#888888" }
+              ]} 
+            />
+            <Text style={styles.cardSubText}>
+              {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
+            </Text>
+          </View>
+        </View>
+
+        {/* 卡片右側：箭頭 */}
+        <View style={styles.cardRight}>
+          <Text style={styles.arrow}>❯</Text>
+        </View>
+      </Pressable>
+    );
+  };
   if (!authChecked || !currentUser) {
     return <View style={styles.screen} />;
   }
@@ -132,9 +240,15 @@ where("id", "==", currentUser.uid), //
 
         {/* 大頭貼 */}
         <View style={styles.avatarSection}>
+<<<<<<< HEAD
+<View style={styles.avatarPlaceholder}>
+  <Image source={accountCircle} style={styles.avatarImage} />
+</View>
+=======
           <View style={styles.avatarPlaceholderLarge}>
             <Text style={{ fontSize: fontSizes.displayLarge }}>👤</Text>
           </View>
+>>>>>>> upstream/main
           <Pressable><Text style={styles.editAvatarText}>編輯頭像</Text></Pressable>
         </View>
 
@@ -143,15 +257,25 @@ where("id", "==", currentUser.uid), //
         <View style={styles.cardGroup}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowIcon}>👤</Text>
-              <Text style={styles.rowLabel}>使用者名稱</Text>
+            <Image 
+                source={typeIcon} 
+                style={[
+                  styles.rowItemIcon, 
+                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
+                ]} 
+              />              <Text style={styles.rowLabel}>使用者名稱</Text>
             </View>
             <Text style={styles.rowValue}>{currentUser.displayName || "夜行者__22"}</Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowIcon}>✉️</Text>
-              <Text style={styles.rowLabel}>電子郵件</Text>
+            <Image 
+                source={mailIcon} 
+                style={[
+                  styles.rowItemIcon, 
+                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
+                ]} 
+              />              <Text style={styles.rowLabel}>電子郵件</Text>
             </View>
             <Text style={styles.rowValue} numberOfLines={1}>{currentUser.email || "xxxxxxx@gmail.com"}</Text>
           </View>
@@ -162,8 +286,14 @@ where("id", "==", currentUser.uid), //
         <View style={styles.cardGroup}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowIcon}>🌙</Text>
-              <Text style={styles.rowLabel}>夜間模式</Text>
+<Image 
+                source={nightModeIcon} 
+                style={[
+                  styles.rowItemIcon, 
+                  { tintColor: isDarkMode ? "#A3B7AC" : "#777777" } // 💡 點亮時變成你們專案的莫蘭迪綠，關閉時是灰色
+                ]} 
+              />
+               <Text style={styles.rowLabel}>夜間模式</Text>
             </View>
             <Switch
               value={isDarkMode}
@@ -174,64 +304,46 @@ where("id", "==", currentUser.uid), //
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Text style={styles.rowIcon}>🧭</Text>
-              <Text style={styles.rowLabel}>App導覽</Text>
+            <Image 
+                source={compassIcon} 
+                style={[
+                  styles.rowItemIcon, 
+                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" } // 💡 讓指南針也能跟著夜間模式變換黑白顏色
+                ]} 
+              />              <Text style={styles.rowLabel}>App導覽</Text>
             </View>
             <Text style={styles.arrow}>❯</Text>
           </View>
         </View>
 
-        {/* 功能按鈕 */}
         <View style={styles.buttonGroup}>
           <Pressable 
             style={styles.logoutButton} 
             onPress={() => {
               Alert.alert("登出帳號", "確定要登出嗎？", [
                 { text: "取消", style: "cancel" },
+<<<<<<< HEAD
+                { text: "確定", style: "destructive", onPress: () => signOut(auth) }
+=======
                 { text: "確定", style: "destructive", onPress: handleSignOut }
+>>>>>>> upstream/main
               ]);
             }}
           >
             <Text style={styles.logoutText}>登出</Text>
           </Pressable>
-{/* 🎯 找到設定頁面裡的刪除帳號按鈕，換成這段： */}
-<Pressable 
-  style={styles.deleteButton} 
-  onPress={() => {
-    // 第一層防護：跳窗詢問
-    Alert.alert(
-      "危險操作", 
-      "您確定要刪除帳號嗎？此操作將無法復原，且您所有的資料將會被永久抹除。", 
-      [
-        { text: "取消", style: "cancel" },
-        { 
-          text: "確定刪除", 
-          style: "destructive", 
-          onPress: async () => {
-            try {
-              // 呼叫 Firebase 刪除當前登入用戶
-              await deleteUser(currentUser);
-              Alert.alert("帳號已刪除", "您的帳號已成功抹除。");
-              // 刪除成功後，onAuthStateChanged 會自動偵測到並把你送回 Login 頁
-            } catch (error) {
-              console.error("刪除帳號失敗:", error);
-              if (error.code === "auth/requires-recent-login") {
-                Alert.alert(
-                  "驗證過期", 
-                  "為了安全起見，刪除帳號前需要重新登入。請先登出並重新登入後再試。"
-                );
-              } else {
-                Alert.alert("操作失敗", "目前無法刪除帳號，請稍後再試。");
-              }
-            }
-          } 
-        }
-      ]
-    );
-  }}
->
-  <Text style={styles.deleteText}>刪除帳號</Text>
-</Pressable>
+
+          <Pressable 
+            style={styles.deleteButton} 
+            onPress={() => {
+              Alert.alert("危險操作", "您確定要刪除帳號嗎？此操作將無法復原。", [
+                { text: "取消", style: "cancel" },
+                { text: "確定刪除", style: "destructive", onPress: () => deleteUser(currentUser) }
+              ]);
+            }}
+          >
+            <Text style={styles.deleteText}>刪除帳號</Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -245,16 +357,35 @@ where("id", "==", currentUser.uid), //
       {/* 1. 頂部個人資訊 */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
+<<<<<<< HEAD
+<View style={styles.avatarPlaceholderLarge}>
+  <Image source={accountCircle} style={styles.avatarImage} />
+</View>
+=======
           <View style={styles.avatarPlaceholder}>
             <Text style={{ fontSize: fontSizes.display }}>👤</Text>
           </View>
+>>>>>>> upstream/main
 <Text style={styles.userName}>
   {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
 </Text>
         </View>
+<<<<<<< HEAD
+       <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
+  <Image 
+    source={settingsIcon} 
+    style={[
+      styles.navIcon, 
+      { tintColor: isDarkMode ? "#FFFFFF" : "#000000", width: 28, height: 28 } // 🎯 這裡直接給大小
+    ]} 
+  />
+</Pressable>
+
+=======
         <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
           <Text style={{ fontSize: fontSizes.heading }}>⚙️</Text>
         </Pressable>
+>>>>>>> upstream/main
       </View>
 
       {/* 2. 數據看板 */}
@@ -264,6 +395,7 @@ where("id", "==", currentUser.uid), //
           <Text style={styles.statNumber}>{userStats.reports}</Text>
           <Text style={styles.statLabel}>總回報數</Text>
         </View>
+        <View style={styles.statCenterDivider} />
         <View style={styles.statBox}>
           <Text style={styles.statNumber}>{userStats.likes}</Text>
           <Text style={styles.statLabel}>獲得讚數</Text>
@@ -278,6 +410,15 @@ where("id", "==", currentUser.uid), //
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+<<<<<<< HEAD
+{currentView === "profile" && (
+        <View style={[styles.navigation, { paddingBottom: insets.bottom }]}>
+          <BottomNavigation activeTab="profile" /> 
+    
+        </View>
+      )}
+=======
+>>>>>>> upstream/main
     </View>
   );
 }
@@ -310,7 +451,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: "transparent", 
     alignItems: "center",
     justifyContent: "center",
   },
@@ -330,6 +471,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     borderRadius: 12,
     paddingVertical: 16,
+    alignItems: "center",
   },
   statBox: {
     flex: 1,
@@ -353,7 +495,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 100, // 避免被底部導覽列遮擋
+    paddingBottom: 130, 
   },
   card: {
     flexDirection: "row",
@@ -372,6 +514,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     width: 50,
+
   },
   iconPlaceholder: {
     fontSize: fontSizes.heading,
@@ -404,6 +547,21 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.bodyLarge,
     color: "#CCCCCC",
   },
+<<<<<<< HEAD
+  navigation: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    //backgroundColor: "#FFFFFF",
+   // borderTopWidth: 1,
+
+    backgroundColor: "transparent", 
+    borderTopWidth: 0,            
+    borderTopColor: "#E0E0E0",
+  },
+=======
+>>>>>>> upstream/main
   // 🎯 請把這些新樣式貼進原本的 StyleSheet.create 裡面：
   settingsHeader: {
     flexDirection: "row",
@@ -421,7 +579,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "#E0E0E0",
+    backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -503,5 +661,64 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: fontSizes.bodyLarge,
     fontWeight: "bold",
+  },
+  // 🎯 3. 確保最底下的 styles 有這一條，控制設定選單小圖示的大小
+  rowItemIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+    marginRight: 12,
+  },
+
+  compassIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+    marginRight: 12,
+  },
+  typeIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+    marginRight: 12,
+  },
+  mailIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
+    marginRight: 12,
+  },
+  cardItemIcon: {
+    width: 35, 
+    height: 35,
+    resizeMode: "contain",
+  },
+  // 🎯 3. 補上標籤與時鐘的視覺樣式
+  tagWrapper: {
+    flexDirection: "row", // 讓長方形只包裹文字寬度，不延伸到全滿
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  grayTag: {
+    backgroundColor: "#EDEDED", // 淺灰色墊底
+    paddingHorizontal: 8,       // 左右留白
+    paddingVertical: 3,         // 上下留白
+    borderRadius: 6,            // 圓角長方形
+  },
+  grayTagText: {
+    fontSize: 12,
+    color: "#555555",           // 微深灰字體，看得很清楚
+    fontWeight: "600",
+  },
+  timeRow: {
+    flexDirection: "row",
+    alignItems: "center",       // 讓時鐘圖片跟時間文字對齊
+    marginTop: 4,
+  },
+  timeIcon: {
+    width: 14,                  // 配合小字的大小
+    height: 14,
+    resizeMode: "contain",
+    marginRight: 4,             // 與時間文字的小間距
   },
 });
