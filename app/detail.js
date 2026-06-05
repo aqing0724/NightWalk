@@ -17,7 +17,6 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { KeyboardStickyView } from "react-native-keyboard-controller";
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -26,6 +25,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -201,7 +201,7 @@ export default function DetailPage() {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef(null);
   const commentListYRef = useRef(0);
-  const shouldScrollToLatestCommentRef = useRef(false);
+  const pendingCommentIdRef = useRef(null);
   const [report, setReport] = useState(null);
   const [comments, setComments] = useState([]);
   const [message, setMessage] = useState("");
@@ -216,13 +216,15 @@ export default function DetailPage() {
   const currentReportId = Array.isArray(reportId) ? reportId[0] : reportId;
   const inputBottomPadding = Math.max(insets.bottom, 26);
 
-  const scrollToLatestComment = useCallback(() => {
-    setTimeout(() => {
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(commentListYRef.current - 16, 0),
-        animated: true,
-      });
-    }, 240);
+  const scrollToComment = useCallback((commentY) => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(commentY - 18, 0),
+          animated: true,
+        });
+      }, 80);
+    });
   }, []);
 
   useEffect(() => {
@@ -312,15 +314,6 @@ export default function DetailPage() {
     return unsubscribe;
   }, [currentReportId, currentUser?.uid]);
 
-  useEffect(() => {
-    if (!shouldScrollToLatestCommentRef.current || !comments.length) {
-      return;
-    }
-
-    shouldScrollToLatestCommentRef.current = false;
-    scrollToLatestComment();
-  }, [comments.length, scrollToLatestComment]);
-
   const handleRefresh = useCallback(async () => {
     if (!currentReportId) {
       return;
@@ -396,10 +389,15 @@ export default function DetailPage() {
     }
 
     setIsSending(true);
-    shouldScrollToLatestCommentRef.current = true;
 
     try {
-      await addDoc(collection(db, "reports", currentReportId, "comments"), {
+      const nextCommentRef = doc(
+        collection(db, "reports", currentReportId, "comments")
+      );
+
+      pendingCommentIdRef.current = nextCommentRef.id;
+
+      await setDoc(nextCommentRef, {
         message: nextMessage,
         userId: user.uid,
         userName: user.displayName || "NightWalk 使用者",
@@ -409,6 +407,7 @@ export default function DetailPage() {
       setMessage("");
       setCommentSuccessAnimationKey((currentKey) => currentKey + 1);
     } catch {
+      pendingCommentIdRef.current = null;
       Alert.alert("送出失敗", "目前無法送出留言，請稍後再試。");
     } finally {
       setIsSending(false);
@@ -504,14 +503,6 @@ export default function DetailPage() {
               { paddingBottom: inputBottomPadding + 106 },
             ]}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => {
-              if (!shouldScrollToLatestCommentRef.current || !comments.length) {
-                return;
-              }
-
-              shouldScrollToLatestCommentRef.current = false;
-              scrollToLatestComment();
-            }}
             refreshControl={
               <RefreshControl
                 refreshing={isRefreshing}
@@ -655,18 +646,31 @@ export default function DetailPage() {
               </View>
             </View>
 
-            <Text
-              style={styles.commentTitle}
-              onLayout={(event) => {
-                commentListYRef.current = event.nativeEvent.layout.y;
-              }}
-            >
+            <Text style={styles.commentTitle}>
               留言與評論
             </Text>
 
-            <View style={styles.commentList}>
+            <View
+              onLayout={(event) => {
+                commentListYRef.current = event.nativeEvent.layout.y;
+              }}
+              style={styles.commentList}
+            >
               {comments.map((comment) => (
-                <View key={comment.id} style={styles.commentCard}>
+                <View
+                  key={comment.id}
+                  onLayout={(event) => {
+                    if (pendingCommentIdRef.current !== comment.id) {
+                      return;
+                    }
+
+                    pendingCommentIdRef.current = null;
+                    scrollToComment(
+                      commentListYRef.current + event.nativeEvent.layout.y
+                    );
+                  }}
+                  style={styles.commentCard}
+                >
                   <View style={styles.commentHeader}>
                     <Image source={accountIcon} style={styles.avatarIcon} />
                     <Text style={styles.commentName}>

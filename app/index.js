@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   Image,
   Platform,
   Pressable,
@@ -167,6 +169,8 @@ export default function Page() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const mapRef = useRef(null);
+  const locatingPulse = useRef(new Animated.Value(0)).current;
+  const locatingSpin = useRef(new Animated.Value(0)).current;
   const [initialMapCenter, setInitialMapCenter] = useState(cachedUserCenter);
   const [userCenter, setUserCenter] = useState(cachedUserCenter);
   const [reports, setReports] = useState([]);
@@ -179,12 +183,52 @@ export default function Page() {
     ? reports.find((report) => report.id === selectedReportId)
     : null;
   const visibleReport = selectedReport || nearestReport;
+  const locatingSpinRotation = locatingSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
 
   useEffect(() => {
     if (dangerSheetVisible && visibleReport && sheetHeight) {
       focusReportOnMap(visibleReport);
     }
   }, [dangerSheetVisible, sheetHeight, visibleReport?.id]);
+
+  useEffect(() => {
+    if (initialMapCenter) {
+      locatingPulse.stopAnimation();
+      locatingSpin.stopAnimation();
+      return undefined;
+    }
+
+    locatingPulse.setValue(0);
+    locatingSpin.setValue(0);
+
+    const pulseAnimation = Animated.loop(
+      Animated.timing(locatingPulse, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      })
+    );
+    const spinAnimation = Animated.loop(
+      Animated.timing(locatingSpin, {
+        toValue: 1,
+        duration: 2200,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    pulseAnimation.start();
+    spinAnimation.start();
+
+    return () => {
+      pulseAnimation.stop();
+      spinAnimation.stop();
+    };
+  }, [initialMapCenter, locatingPulse, locatingSpin]);
 
   useEffect(() => {
     const reportsQuery = query(
@@ -413,36 +457,83 @@ export default function Page() {
             </Marker>
           ))}
         </MapView>
+      ) : (
+        <View
+          accessibilityLabel="正在尋找定位"
+          accessibilityLiveRegion="polite"
+          style={styles.locatingOverlay}
+        >
+          <View style={styles.locatingAnimation}>
+            <Animated.View
+              style={[
+                styles.locatingPulse,
+                {
+                  opacity: locatingPulse.interpolate({
+                    inputRange: [0, 0.72, 1],
+                    outputRange: [0.28, 0.12, 0],
+                  }),
+                  transform: [
+                    {
+                      scale: locatingPulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.72, 1.55],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <View style={styles.locatingRadar}>
+              <Animated.View
+                style={[
+                  styles.locatingSweepWrapper,
+                  { transform: [{ rotate: locatingSpinRotation }] },
+                ]}
+              >
+                <View style={styles.locatingSweep} />
+              </Animated.View>
+              <View style={styles.locatingDot} />
+            </View>
+          </View>
+          <Text style={styles.locatingTitle}>正在尋找定位</Text>
+          <Text style={styles.locatingDescription}>
+            正在確認你的目前位置，準備載入附近安全地圖
+          </Text>
+        </View>
+      )}
+
+      {initialMapCenter ? (
+        <>
+          <View
+            style={[
+              styles.dangerCard,
+              { bottom: dangerCardBottom },
+            ]}
+          >
+            <DangerAreaCard
+              report={nearestReport}
+              onPress={() => {
+                if (nearestReport) {
+                  handleOpenReportSheet(nearestReport);
+                }
+              }}
+            />
+          </View>
+
+          <Pressable
+            accessibilityLabel="回到目前位置"
+            accessibilityRole="button"
+            onPress={handleRecenterToUser}
+            style={({ pressed }) => [
+              styles.recenterButton,
+              { bottom: dangerCardBottom + 75 + 28 },
+              pressed ? styles.recenterButtonPressed : null,
+            ]}
+          >
+            <Image source={centerIcon} style={styles.recenterIcon} />
+          </Pressable>
+        </>
       ) : null}
-
-      <View
-        style={[
-          styles.dangerCard,
-          { bottom: dangerCardBottom },
-        ]}
-      >
-        <DangerAreaCard
-          report={nearestReport}
-          onPress={() => {
-            if (nearestReport) {
-              handleOpenReportSheet(nearestReport);
-            }
-          }}
-        />
-      </View>
-
-      <Pressable
-        accessibilityLabel="回到目前位置"
-        accessibilityRole="button"
-        onPress={handleRecenterToUser}
-        style={({ pressed }) => [
-          styles.recenterButton,
-          { bottom: dangerCardBottom + 75 + 28 },
-          pressed ? styles.recenterButtonPressed : null,
-        ]}
-      >
-        <Image source={centerIcon} style={styles.recenterIcon} />
-      </Pressable>
 
       <DangerAreaSheet
         visible={dangerSheetVisible}
@@ -464,6 +555,77 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  locatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 34,
+  },
+  locatingAnimation: {
+    width: 138,
+    height: 138,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  locatingPulse: {
+    position: "absolute",
+    width: 138,
+    height: 138,
+    borderRadius: 69,
+    borderWidth: 2,
+    borderColor: colors.special,
+    backgroundColor: colors.special,
+  },
+  locatingRadar: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+    borderWidth: 1,
+    borderColor: colors.specialSoft,
+    backgroundColor: "rgba(166, 186, 174, 0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  locatingSweepWrapper: {
+    position: "absolute",
+    width: 92,
+    height: 92,
+    alignItems: "center",
+  },
+  locatingSweep: {
+    width: 2,
+    height: 46,
+    borderRadius: 1,
+    backgroundColor: colors.white,
+    opacity: 0.82,
+  },
+  locatingDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.white,
+    borderWidth: 5,
+    borderColor: colors.special,
+  },
+  locatingTitle: {
+    marginTop: 24,
+    color: colors.black,
+    fontSize: fontSizes.titleLarge,
+    fontWeight: "900",
+    lineHeight: 29,
+    textAlign: "center",
+  },
+  locatingDescription: {
+    maxWidth: 270,
+    marginTop: 10,
+    color: colors.black,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "700",
+    lineHeight: 21,
+    textAlign: "center",
   },
   reportMarker: {
     width: 64,
