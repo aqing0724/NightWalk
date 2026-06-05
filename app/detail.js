@@ -21,6 +21,8 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  deleteDoc, 
+  getDocs,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -153,7 +155,10 @@ export default function DetailPage() {
 
     const nextMessage = message.trim();
     const user = auth.currentUser;
-
+    if (!report || !currentReportId) {
+      Alert.alert("操作失敗", "該筆危險回報已被刪除，無法再發表評論。");
+      return;
+    }
     if (!currentReportId) {
       Alert.alert("無法留言", "缺少回報資料，請從回報列表重新進入。");
       return;
@@ -176,6 +181,7 @@ export default function DetailPage() {
         userId: user.uid,
         userName: user.displayName || "NightWalk 使用者",
         createdAt: serverTimestamp(),
+        locationText: locationText,
       });
 
       setMessage("");
@@ -263,7 +269,19 @@ export default function DetailPage() {
         </Pressable>
 
         <Text style={styles.headerTitle}>回報詳細頁</Text>
-        <View style={styles.headerSpacer} />
+
+{currentUser && report && report.userId === currentUser.uid ? (
+          <Pressable 
+            onPress={handleDeleteReport} 
+            hitSlop={12} 
+            style={styles.deleteHeaderButton}
+          >
+            {/* 💡 垃圾桶圖示可以直接使用 Emoji 🗑️ 或你專案內的垃圾桶本機圖檔 */}
+            <Text style={{ fontSize: 26 }}>🗑️</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
       </View>
 
       <ScrollView
@@ -452,6 +470,52 @@ export default function DetailPage() {
       <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
     </KeyboardAvoidingView>
   );
+
+// 🎯 2. 新增刪除回報與二度確認邏輯
+// 🎯 方案二：刪除回報時，連帶永久刪除地底下的所有子評論
+  async function handleDeleteReport() {
+    if (!currentReportId) return;
+
+    // 跳出第一層防護：Alert 詢問
+    Alert.alert(
+      "刪除回報", 
+      "您確定要刪除這筆危險地點回報嗎？此操作將無法復原，且底下的所有留言與評論會被永久抹除。", 
+      [
+        { text: "取消", style: "cancel" },
+        { 
+          text: "確定刪除", 
+          style: "destructive", 
+          onPress: async () => {
+            try {
+              // 1. 先抓取該回報底下的 comments 子集合參照
+              const commentsRef = collection(db, "reports", currentReportId, "comments");
+              const commentsSnapshot = await getDocs(commentsRef);
+              
+              // 2. 將所有子評論的刪除動作打包成 Promise 陣列
+              const deleteCommentsPromises = commentsSnapshot.docs.map((commentDoc) => 
+                deleteDoc(doc(db, "reports", currentReportId, "comments", commentDoc.id))
+              );
+              
+              // 3. 同步並行執行所有評論的刪除，確保全部清空
+              await Promise.all(deleteCommentsPromises);
+
+              // 4. 最後回頭刪除最外層的「回報主文件」
+              await deleteDoc(doc(db, "reports", currentReportId));
+              
+              Alert.alert("刪除成功", "該筆回報及其所有相關評論已成功移除。");
+              
+              // 刪除成功後，自動返回個人主頁，主頁的即時監聽會自動扣除數量
+              router.back(); 
+            } catch (error) {
+              console.error("連帶刪除失敗:", error);
+              Alert.alert("操作失敗", "目前無法完整刪除該資料，請稍後再試。");
+            }
+          } 
+        }
+      ]
+    );
+  }
+
 }
 
 const styles = StyleSheet.create({
