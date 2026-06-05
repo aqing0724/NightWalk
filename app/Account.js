@@ -240,15 +240,9 @@ const renderItem = ({ item }) => {
 
         {/* 大頭貼 */}
         <View style={styles.avatarSection}>
-<<<<<<< HEAD
-<View style={styles.avatarPlaceholder}>
-  <Image source={accountCircle} style={styles.avatarImage} />
-</View>
-=======
           <View style={styles.avatarPlaceholderLarge}>
-            <Text style={{ fontSize: fontSizes.displayLarge }}>👤</Text>
+            <Image source={accountCircle} style={styles.avatarImage} />
           </View>
->>>>>>> upstream/main
           <Pressable><Text style={styles.editAvatarText}>編輯頭像</Text></Pressable>
         </View>
 
@@ -257,25 +251,27 @@ const renderItem = ({ item }) => {
         <View style={styles.cardGroup}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-            <Image 
-                source={typeIcon} 
+              <Image
+                source={typeIcon}
                 style={[
-                  styles.rowItemIcon, 
+                  styles.rowItemIcon,
                   { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
-                ]} 
-              />              <Text style={styles.rowLabel}>使用者名稱</Text>
+                ]}
+              />
+              <Text style={styles.rowLabel}>使用者名稱</Text>
             </View>
             <Text style={styles.rowValue}>{currentUser.displayName || "夜行者__22"}</Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-            <Image 
-                source={mailIcon} 
+              <Image
+                source={mailIcon}
                 style={[
-                  styles.rowItemIcon, 
+                  styles.rowItemIcon,
                   { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
-                ]} 
-              />              <Text style={styles.rowLabel}>電子郵件</Text>
+                ]}
+              />
+              <Text style={styles.rowLabel}>電子郵件</Text>
             </View>
             <Text style={styles.rowValue} numberOfLines={1}>{currentUser.email || "xxxxxxx@gmail.com"}</Text>
           </View>
@@ -286,14 +282,14 @@ const renderItem = ({ item }) => {
         <View style={styles.cardGroup}>
           <View style={styles.row}>
             <View style={styles.rowLeft}>
-<Image 
-                source={nightModeIcon} 
+              <Image
+                source={nightModeIcon}
                 style={[
-                  styles.rowItemIcon, 
+                  styles.rowItemIcon,
                   { tintColor: isDarkMode ? "#A3B7AC" : "#777777" } // 💡 點亮時變成你們專案的莫蘭迪綠，關閉時是灰色
-                ]} 
+                ]}
               />
-               <Text style={styles.rowLabel}>夜間模式</Text>
+              <Text style={styles.rowLabel}>夜間模式</Text>
             </View>
             <Switch
               value={isDarkMode}
@@ -304,13 +300,14 @@ const renderItem = ({ item }) => {
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-            <Image 
-                source={compassIcon} 
+              <Image
+                source={compassIcon}
                 style={[
-                  styles.rowItemIcon, 
+                  styles.rowItemIcon,
                   { tintColor: isDarkMode ? "#FFFFFF" : "#000000" } // 💡 讓指南針也能跟著夜間模式變換黑白顏色
-                ]} 
-              />              <Text style={styles.rowLabel}>App導覽</Text>
+                ]}
+              />
+              <Text style={styles.rowLabel}>App導覽</Text>
             </View>
             <Text style={styles.arrow}>❯</Text>
           </View>
@@ -322,11 +319,7 @@ const renderItem = ({ item }) => {
             onPress={() => {
               Alert.alert("登出帳號", "確定要登出嗎？", [
                 { text: "取消", style: "cancel" },
-<<<<<<< HEAD
-                { text: "確定", style: "destructive", onPress: () => signOut(auth) }
-=======
                 { text: "確定", style: "destructive", onPress: handleSignOut }
->>>>>>> upstream/main
               ]);
             }}
           >
@@ -357,35 +350,22 @@ const renderItem = ({ item }) => {
       {/* 1. 頂部個人資訊 */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
-<<<<<<< HEAD
-<View style={styles.avatarPlaceholderLarge}>
-  <Image source={accountCircle} style={styles.avatarImage} />
-</View>
-=======
           <View style={styles.avatarPlaceholder}>
-            <Text style={{ fontSize: fontSizes.display }}>👤</Text>
+            <Image source={accountCircle} style={styles.avatarImage} />
           </View>
->>>>>>> upstream/main
-<Text style={styles.userName}>
-  {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
-</Text>
+          <Text style={styles.userName}>
+            {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
+          </Text>
         </View>
-<<<<<<< HEAD
-       <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
-  <Image 
-    source={settingsIcon} 
-    style={[
-      styles.navIcon, 
-      { tintColor: isDarkMode ? "#FFFFFF" : "#000000", width: 28, height: 28 } // 🎯 這裡直接給大小
-    ]} 
-  />
-</Pressable>
-
-=======
         <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
-          <Text style={{ fontSize: fontSizes.heading }}>⚙️</Text>
+          <Image
+            source={settingsIcon}
+            style={[
+              styles.navIcon,
+              { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
+            ]}
+          />
         </Pressable>
->>>>>>> upstream/main
       </View>
 
       {/* 2. 數據看板 */}
@@ -410,15 +390,6 @@ const renderItem = ({ item }) => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
-<<<<<<< HEAD
-{currentView === "profile" && (
-        <View style={[styles.navigation, { paddingBottom: insets.bottom }]}>
-          <BottomNavigation activeTab="profile" /> 
-    
-        </View>
-      )}
-=======
->>>>>>> upstream/main
     </View>
   );
 }
@@ -455,6 +426,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
+  },
   userName: {
     fontSize: fontSizes.titleLarge,
     fontWeight: "bold",
@@ -463,6 +439,11 @@ const styles = StyleSheet.create({
   },
   settingButton: {
     padding: 8,
+  },
+  navIcon: {
+    width: 28,
+    height: 28,
+    resizeMode: "contain",
   },
   statsContainer: {
     flexDirection: "row",
@@ -547,21 +528,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.bodyLarge,
     color: "#CCCCCC",
   },
-<<<<<<< HEAD
-  navigation: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    //backgroundColor: "#FFFFFF",
-   // borderTopWidth: 1,
-
-    backgroundColor: "transparent", 
-    borderTopWidth: 0,            
-    borderTopColor: "#E0E0E0",
-  },
-=======
->>>>>>> upstream/main
   // 🎯 請把這些新樣式貼進原本的 StyleSheet.create 裡面：
   settingsHeader: {
     flexDirection: "row",
@@ -706,7 +672,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,            // 圓角長方形
   },
   grayTagText: {
-    fontSize: 12,
+    fontSize: fontSizes.small,
     color: "#555555",           // 微深灰字體，看得很清楚
     fontWeight: "600",
   },

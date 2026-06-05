@@ -25,12 +25,8 @@ import {
   orderBy,
   query,
   serverTimestamp,
-<<<<<<< HEAD
-  deleteDoc, 
-  getDocs,
-=======
+  deleteDoc,
   setDoc,
->>>>>>> upstream/main
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -479,215 +475,12 @@ export default function DetailPage() {
   const warningIcon = redDangerIcon;
 
   return (
-<<<<<<< HEAD
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      style={styles.screen}
-    >
-      <StatusBar
-        barStyle="dark-content"
-        backgroundColor={colors.background}
-      />
-
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 18) }]}>
-        <Pressable
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={styles.backButton}
-        >
-          <Image source={chevronIcon} style={styles.backIcon} />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>回報詳細頁</Text>
-
-{currentUser && report && report.userId === currentUser.uid ? (
-          <Pressable 
-            onPress={handleDeleteReport} 
-            hitSlop={12} 
-            style={styles.deleteHeaderButton}
-          >
-            {/* 💡 垃圾桶圖示可以直接使用 Emoji 🗑️ 或你專案內的垃圾桶本機圖檔 */}
-            <Text style={{ fontSize: 26 }}>🗑️</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.headerSpacer} />
-        )}
-      </View>
-
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: 24 },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        style={styles.scrollView}
-      >
-        <View style={styles.reportCard}>
-          <View style={styles.reportHeader}>
-            <Image source={warningIcon} style={styles.warningIcon} />
-
-            <View style={styles.reportTitleGroup}>
-              <Text style={styles.reportTitle}>危險回報</Text>
-              <View style={styles.locationRow}>
-                <Image source={mapPinIcon} style={styles.locationIcon} />
-                <Text style={styles.locationText}>{locationText}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.tagRow}>
-            {typeList.length ? (
-              typeList.map((type) => (
-                <View key={type} style={styles.tag}>
-                  <Text style={styles.tagText}>{typeLabels[type] || type}</Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.tag}>
-                <Text style={styles.tagText}>未分類</Text>
-              </View>
-            )}
-          </View>
-
-          <Text style={styles.description}>
-            {report?.description || "尚未提供情況說明。"}
-          </Text>
-        </View>
-
-        {imageUrls.length ? (
-          <ScrollView
-            contentContainerStyle={styles.reportImageRow}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-          >
-            {imageUrls.map((imageUrl, index) => (
-              <View key={`${imageUrl}-${index}`} style={styles.reportImageCard}>
-                <Image
-                  accessibilityLabel={`Report photo ${index + 1}`}
-                  resizeMode="cover"
-                  source={{ uri: imageUrl }}
-                  style={styles.reportImage}
-                />
-              </View>
-            ))}
-          </ScrollView>
-        ) : null}
-
-        <View style={styles.voteCard}>
-          <View style={styles.voteTitleRow}>
-            <Text style={styles.sectionTitle}>社群驗證</Text>
-            <Text style={styles.voteHint}>(已有 {voteCount} 人投票)</Text>
-          </View>
-
-          <View style={styles.voteRow}>
-            <Pressable
-              accessibilityLabel="Mark report as credible"
-              accessibilityRole="button"
-              disabled={isVoting}
-              onPress={() => handleVote("credible")}
-              style={[
-                styles.voteButton,
-                selectedVote === "credible" ? styles.voteButtonActive : null,
-              ]}
-            >
-              <Image
-                source={
-                  selectedVote === "credible"
-                    ? thumbsUpActiveIcon
-                    : thumbsUpIcon
-                }
-                style={styles.voteIcon}
-              />
-              <Text
-                style={[
-                  styles.voteText,
-                  selectedVote === "credible" ? styles.voteTextActive : null,
-                ]}
-              >
-                可信({credibleCount})
-              </Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityLabel="Mark report as not credible"
-              accessibilityRole="button"
-              disabled={isVoting}
-              onPress={() => handleVote("notCredible")}
-              style={[
-                styles.voteButton,
-                selectedVote === "notCredible" ? styles.voteButtonActive : null,
-              ]}
-            >
-              <Image
-                source={
-                  selectedVote === "notCredible"
-                    ? thumbsDownActiveIcon
-                    : thumbsDownIcon
-                }
-                style={styles.voteIcon}
-              />
-              <Text
-                style={[
-                  styles.voteText,
-                  selectedVote === "notCredible" ? styles.voteTextActive : null,
-                ]}
-              >
-                不可信({notCredibleCount})
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <Text style={styles.commentTitle}>留言與評論</Text>
-
-        <View style={styles.commentList}>
-          {comments.map((comment) => (
-            <View key={comment.id} style={styles.commentCard}>
-              <View style={styles.commentHeader}>
-                <Image source={accountIcon} style={styles.avatarIcon} />
-                <Text style={styles.commentName}>
-                  {comment.userName || "匿名使用者"}
-                </Text>
-              </View>
-              <Text style={styles.commentMessage}>{comment.message}</Text>
-            </View>
-          ))}
-        </View>
-
-      </ScrollView>
-
-      <View
-        style={[
-          styles.inputBar,
-          { paddingBottom: Math.max(insets.bottom, 26) },
-        ]}
-      >
-        <View style={styles.inputCard}>
-          <Image source={accountIcon} style={styles.inputAvatarIcon} />
-          <TextInput
-            accessibilityLabel="Write a comment"
-            editable={!isSending}
-            maxLength={500}
-            onChangeText={setMessage}
-            onSubmitEditing={handleSendComment}
-            placeholder={
-              currentUser ? "發表你的評論..." : "登入後才能發表評論"
-            }
-            placeholderTextColor={colors.special}
-            returnKeyType="send"
-            style={styles.commentInput}
-            value={message}
-=======
     <View style={styles.screen}>
       <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
         <View style={styles.screen}>
           <StatusBar
             barStyle="dark-content"
             backgroundColor={colors.background}
->>>>>>> upstream/main
           />
 
           <View
@@ -704,7 +497,19 @@ export default function DetailPage() {
             </Pressable>
 
             <Text style={styles.headerTitle}>回報詳細頁</Text>
-            <View style={styles.headerSpacer} />
+            {currentUser && report?.userId === currentUser.uid ? (
+              <Pressable
+                accessibilityLabel="Delete report"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={handleDeleteReport}
+                style={styles.deleteHeaderButton}
+              >
+                <Text style={styles.deleteHeaderText}>刪</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.headerSpacer} />
+            )}
           </View>
 
           <ScrollView
@@ -1030,6 +835,19 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 34,
+  },
+  deleteHeaderButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surfaceMuted,
+  },
+  deleteHeaderText: {
+    color: colors.red,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
   },
   content: {
     paddingHorizontal: 20,
