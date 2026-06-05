@@ -190,7 +190,7 @@ const renderItem = ({ item }) => {
             </>
           )}
           
-                    <View style={styles.timeRow}>
+          <View style={styles.timeRow}>
             <Image 
               source={clockIcon} 
               style={[
