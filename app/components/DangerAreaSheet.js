@@ -3,6 +3,7 @@ import {
   Animated,
   Dimensions,
   Image,
+  Modal,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -254,34 +255,37 @@ export default function DangerAreaSheet({
     ]);
   }
 
-  if (!visible) {
-    return null;
-  }
-
   return (
-    <View style={styles.overlay}>
-      <Pressable
-        accessibilityLabel="Close danger area details"
-        accessibilityRole="button"
-        onPress={onClose}
-        style={styles.backdrop}
-      />
+    <Modal
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View style={styles.overlay}>
+        <Pressable
+          accessibilityLabel="Close danger area details"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={styles.backdrop}
+        />
 
-      <Animated.View
-        style={[
-          styles.sheet,
-          {
-            paddingBottom: Math.max(insets.bottom, 16),
-            transform: [{ translateY: dragY }],
-          },
-        ]}
-        onLayout={(event) => {
-          const nextSheetHeight = event.nativeEvent.layout.height;
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: Math.max(insets.bottom, 16),
+              transform: [{ translateY: dragY }],
+            },
+          ]}
+          onLayout={(event) => {
+            const nextSheetHeight = event.nativeEvent.layout.height;
 
-          sheetHeightRef.current = nextSheetHeight;
-          onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
-        }}
-      >
+            sheetHeightRef.current = nextSheetHeight;
+            onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
+          }}
+        >
         <View
           accessibilityLabel="Drag to resize danger area details"
           accessibilityRole="adjustable"
@@ -406,15 +410,15 @@ export default function DangerAreaSheet({
       </Animated.View>
 
       <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
-    </View>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
     justifyContent: "flex-end",
-    zIndex: 5,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -486,10 +490,10 @@ const styles = StyleSheet.create({
   },
   typeBadge: {
     alignSelf: "flex-start",
-    height: 34,
+    height: 38,
     marginRight: 10,
     marginBottom: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: colors.surfaceMuted,
     flexDirection: "row",
@@ -498,15 +502,15 @@ const styles = StyleSheet.create({
   typeText: {
     marginLeft: 6,
     color: colors.black,
-    fontSize: fontSizes.labelSmall,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "800",
-    lineHeight: 18,
+    lineHeight: 22,
   },
   typeHash: {
     color: colors.black,
-    fontSize: fontSizes.labelSmall,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "900",
-    lineHeight: 18,
+    lineHeight: 22,
   },
   typeRow: {
     marginTop: 10,

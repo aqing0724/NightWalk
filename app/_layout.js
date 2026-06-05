@@ -1,5 +1,6 @@
 import { Stack, usePathname } from "expo-router";
 import { StatusBar, StyleSheet, View } from "react-native";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import {
   SafeAreaProvider,
   initialWindowMetrics,
@@ -12,7 +13,9 @@ import { colors } from "./constants/theme";
 export default function RootLayout() {
   return (
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-      <AppFrame />
+      <KeyboardProvider statusBarTranslucent>
+        <AppFrame />
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
