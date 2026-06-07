@@ -10,7 +10,20 @@ export const colors = {
   divider: "#E0E0E0",
   handle: "#B8B8B8",
 };
-
+const darkColors = {
+  transparent: "transparent",
+  black: "#000000",
+  white: "#FFFFFF",
+  background: "#121212",    // 🎯 夜間深色背景
+  text: "#FFFFFF",          // 🎯 夜間白色文字
+  textMuted: "#AAAAAA",     // 🎯 夜間副標題文字
+  special: "#8FA397",       // 夜間微調的綠色
+  specialSoft: "#2A332E",   // 夜間深綠色塊
+  red: "#FF6666",
+  surfaceMuted: "#1E1E1E",  // 夜間卡片背景
+  divider: "#2C2C2C",
+  handle: "#555555",
+};
 export const fontSizes = {
   caption: 10,
   footnote: 11,
@@ -29,4 +42,8 @@ export const fontSizes = {
   display: 40,
   displayLarge: 44,
   successMark: 45,
+};
+export const themeColors = {
+  light: colors,
+  dark: darkColors,
 };

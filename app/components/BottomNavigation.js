@@ -12,6 +12,7 @@ import { onAuthStateChanged } from "firebase/auth";
 
 import { auth } from "../../firebase";
 import { colors } from "../constants/theme";
+import { useTheme } from "../ThemeContext"; // 🎯 1. 物理修正：使用兩個點精準跳出資料夾，安全引入主題管家
 
 const homeIcon = require("../../assets/home.png");
 const homeActiveIcon = require("../../assets/home-on.png");
@@ -32,6 +33,8 @@ function getActiveIndex(pathname) {
 }
 
 export default function BottomNavigation() {
+  // 🎯 2. 核心注入：在組件最頂層撈出 themeMode 與 colors，確保底下的 return 100% 抓得到變數
+  const { themeMode, colors: globalColors } = useTheme(); 
   const router = useRouter();
   const pathname = usePathname();
   const activeIndex = getActiveIndex(pathname);
@@ -103,7 +106,8 @@ export default function BottomNavigation() {
         onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)}
         style={styles.navFrame}
       >
-        <View style={styles.navBar}>
+        {/* 🎯 3. 物理變色：在 View 上直接用陣列樣式改寫 navBar 底色，白天純白，黑夜切換為你指定的質感炭灰 */}
+        <View style={[styles.navBar, { backgroundColor: themeMode === "dark" ? "#2A2A2A" : colors.white }]}>
           {barWidth ? (
             <Animated.View
               pointerEvents="none"
@@ -112,6 +116,8 @@ export default function BottomNavigation() {
                 {
                   transform: [{ translateX: pillTranslateX }],
                   width: itemWidth - 8,
+                  // 🎯 當前選中發亮膠囊的底色，夜間模式時自動適應深莫蘭迪綠，避免過亮刺眼
+                  backgroundColor: themeMode === "dark" ? "#344039" : colors.specialSoft, 
                 },
               ]}
             />
@@ -125,6 +131,8 @@ export default function BottomNavigation() {
                 style={[
                   styles.navIcon,
                   activeIndex === 0 ? styles.navIconActive : null,
+                  // 🎯 4. 圖示反轉：非選中狀態的 Home 圖示，在夜間自動從黑色轉化為反差白
+                  { tintColor: activeIndex === 0 ? colors.special : (themeMode === "dark" ? "#FFFFFF" : colors.black) }
                 ]}
               />
             ),
@@ -139,6 +147,8 @@ export default function BottomNavigation() {
                 style={[
                   styles.addIcon,
                   activeIndex === 1 ? styles.navIconActive : null,
+                  // 🎯 5. 加號反轉：中間大加號在夜間模式下直接強制改為純白色
+                  { tintColor: activeIndex === 1 ? colors.special : (themeMode === "dark" ? "#FFFFFF" : colors.black) }
                 ]}
               />
             ),
@@ -153,6 +163,8 @@ export default function BottomNavigation() {
                 style={[
                   styles.navIcon,
                   activeIndex === 2 ? styles.navIconActive : null,
+                  // 🎯 6. 個人頭像反轉：夜間未選中時自動切換成白，不再被黑色背景吞掉
+                  { tintColor: activeIndex === 2 ? colors.special : (themeMode === "dark" ? "#FFFFFF" : colors.black) }
                 ]}
               />
             ),
@@ -164,6 +176,7 @@ export default function BottomNavigation() {
   );
 }
 
+// 🎯 下方的 StyleSheet.create 恢復成最乾淨安全的純結構靜態樣式，絕不殘留動態變數，保證絕不噴錯！
 const styles = StyleSheet.create({
   navWrap: {
     position: "relative",
@@ -192,7 +205,6 @@ const styles = StyleSheet.create({
     borderColor: colors.divider,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.white,
   },
   activePill: {
     position: "absolute",
@@ -200,7 +212,6 @@ const styles = StyleSheet.create({
     bottom: 5,
     left: 4,
     borderRadius: 27,
-    backgroundColor: colors.specialSoft,
   },
   navItem: {
     flex: 1,
@@ -218,17 +229,14 @@ const styles = StyleSheet.create({
     height: 26,
     opacity: 0.82,
     resizeMode: "contain",
-    tintColor: colors.black,
   },
   navIconActive: {
     opacity: 1,
-    tintColor: colors.special,
   },
   addIcon: {
     width: 46,
     height: 46,
     opacity: 0.82,
     resizeMode: "contain",
-    tintColor: colors.black,
   },
 });

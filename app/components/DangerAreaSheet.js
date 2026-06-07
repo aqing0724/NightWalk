@@ -20,6 +20,7 @@ import { auth, db } from "../../firebase";
 import { colors, fontSizes } from "../constants/theme";
 import { voteOnReport } from "../../services/reportVoting";
 import VoteSuccessToast from "./VoteSuccessToast";
+import { useTheme } from "../ThemeContext"; 
 
 const redDangerIcon = require("../../assets/redDanger.png");
 const faceIcon = require("../../assets/Face.png");
@@ -60,6 +61,7 @@ export default function DangerAreaSheet({
   onClose,
   onSheetLayout,
 }) {
+  const { themeMode } = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [isVoting, setIsVoting] = useState(false);
@@ -255,7 +257,7 @@ export default function DangerAreaSheet({
     ]);
   }
 
-  return (
+return (
     <Modal
       animationType="none"
       onRequestClose={onClose}
@@ -277,6 +279,7 @@ export default function DangerAreaSheet({
             {
               paddingBottom: Math.max(insets.bottom, 16),
               transform: [{ translateY: dragY }],
+              backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white,
             },
           ]}
           onLayout={(event) => {
@@ -286,130 +289,128 @@ export default function DangerAreaSheet({
             onSheetLayout?.(nextSheetHeight - dragOffsetRef.current);
           }}
         >
-        <View
-          accessibilityLabel="Drag to resize danger area details"
-          accessibilityRole="adjustable"
-          {...panResponder.panHandlers}
-          style={styles.handleArea}
-        >
-          <View style={styles.handle} />
-        </View>
+          <View
+            accessibilityLabel="Drag to resize danger area details"
+            accessibilityRole="adjustable"
+            {...panResponder.panHandlers}
+            style={styles.handleArea}
+          >
+            <View style={styles.handle} />
+          </View>
 
-        <View style={styles.header}>
-          <Image source={warningIcon} style={styles.warningIcon} />
-          <Text style={styles.title}>危險區域</Text>
-        </View>
+          <View style={styles.header}>
+            <Image source={warningIcon} style={styles.warningIcon} />
+            <Text style={[styles.title, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>危險區域</Text>
+          </View>
 
-        <View style={styles.metaItem}>
-          <Image source={mapPinIcon} style={styles.metaIcon} />
-          <Text style={styles.metaText}>{locationText}</Text>
-        </View>
+          <View style={styles.metaItem}>
+            <Image source={mapPinIcon} style={[styles.metaIcon, { tintColor: themeMode === "dark" ? "#FFFFFF" : colors.black }]} />
+            <Text style={[styles.metaText, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>{locationText}</Text>
+          </View>
 
-        <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.divider }]} />
 
-        <Text style={styles.sectionTitle}>危險類型</Text>
-        <View style={styles.typeRow}>
-          {typeList.length ? (
-            typeList.map((type) => (
-              <View key={type} style={styles.typeBadge}>
-                <Text style={styles.typeHash}>#</Text>
-                <Text style={styles.typeText}>{formatTypeLabel(type)}</Text>
+          <Text style={[styles.sectionTitle, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>危險類型</Text>
+          <View style={styles.typeRow}>
+            {typeList.length ? (
+              typeList.map((type) => (
+                <View key={type} style={[styles.typeBadge, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted }]}>
+                  <Text style={[styles.typeHash, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>#</Text>
+                  <Text style={[styles.typeText, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>{formatTypeLabel(type)}</Text>
+                </View>
+              ))
+            ) : (
+              <View style={[styles.typeBadge, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted }]}>
+                <Text style={[styles.typeHash, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>#</Text>
+                <Text style={[styles.typeText, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>未分類</Text>
               </View>
-            ))
-          ) : (
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeHash}>#</Text>
-              <Text style={styles.typeText}>未分類</Text>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
 
-        <View style={styles.divider} />
-        <Text style={styles.sectionTitle}>危險描述</Text>
+          <View style={[styles.divider, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.divider }]} />
+          <Text style={[styles.sectionTitle, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>危險描述</Text>
 
-        {report?.description ? (
-          <Text style={styles.description} numberOfLines={3}>
-            {report.description}
-          </Text>
-        ) : null}
+          {report?.description ? (
+            <Text style={[styles.description, { color: themeMode === "dark" ? "#AAAAAA" : colors.black }]} numberOfLines={3}>            
+              {report.description}
+            </Text>
+          ) : null}
 
-        <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.divider }]} />
+          
+          <View style={styles.sectionTitleRow}>
+            <Text style={[styles.sectionTitle, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>社群驗證</Text>
+            <Text style={[styles.voteHint, { color: themeMode === "dark" ? "#666666" : colors.black }]}>已有 {voteCount} 人投票</Text>
+          </View>
 
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>社群驗證</Text>
-          <Text style={styles.voteHint}>已有 {voteCount} 人投票</Text>
-        </View>
-
-        <View style={styles.voteRow}>
-          <Pressable
-            accessibilityLabel="Trust this danger report"
-            accessibilityRole="button"
-            disabled={isVoting}
-            onPress={() => handleVote("credible")}
-            style={[
-              styles.voteButton,
-              selectedVote === "credible" ? styles.voteButtonActive : null,
-            ]}
-          >
-            <Image
-              source={
-                selectedVote === "credible" ? thumbsUpActiveIcon : thumbsUpIcon
-              }
-              style={styles.voteIcon}
-            />
-            <Text
+          <View style={styles.voteRow}>
+            <Pressable
+              accessibilityLabel="Trust this danger report"
+              accessibilityRole="button"
+              disabled={isVoting}
+              onPress={() => handleVote("credible")}
               style={[
-                styles.voteText,
-                selectedVote === "credible" ? styles.voteTextActive : null,
+                styles.voteButton,
+                { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted },
+                selectedVote === "credible" ? styles.voteButtonActive : null,
               ]}
             >
-              可信({credibleCount})
-            </Text>
-          </Pressable>
+              <Image
+                source={selectedVote === "credible" ? thumbsUpActiveIcon : thumbsUpIcon}
+                style={[styles.voteIcon, { tintColor: selectedVote === "credible" ? undefined : (themeMode === "dark" ? "#FFFFFF" : undefined) }]}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  { color: themeMode === "dark" ? "#FFFFFF" : colors.black },
+                  selectedVote === "credible" ? styles.voteTextActive : null,
+                ]}
+              >
+                可信({credibleCount})
+              </Text>
+            </Pressable>
 
-          <Pressable
-            accessibilityLabel="Distrust this danger report"
-            accessibilityRole="button"
-            disabled={isVoting}
-            onPress={() => handleVote("notCredible")}
-            style={[
-              styles.voteButton,
-              selectedVote === "notCredible" ? styles.voteButtonActive : null,
-            ]}
-          >
-            <Image
-              source={
-                selectedVote === "notCredible"
-                  ? thumbsDownActiveIcon
-                  : thumbsDownIcon
-              }
-              style={styles.voteIcon}
-            />
-            <Text
+            <Pressable
+              accessibilityLabel="Distrust this danger report"
+              accessibilityRole="button"
+              disabled={isVoting}
+              onPress={() => handleVote("notCredible")}
               style={[
-                styles.voteText,
-                selectedVote === "notCredible" ? styles.voteTextActive : null,
+                styles.voteButton,
+                { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted },
+                selectedVote === "notCredible" ? styles.voteButtonActive : null,
               ]}
             >
-              不可信({notCredibleCount})
-            </Text>
+              <Image
+                source={selectedVote === "notCredible" ? thumbsDownActiveIcon : thumbsDownIcon}
+                style={[styles.voteIcon, { tintColor: selectedVote === "notCredible" ? undefined : (themeMode === "dark" ? "#FFFFFF" : undefined) }]}
+              />
+              <Text
+                style={[
+                  styles.voteText,
+                  { color: themeMode === "dark" ? "#FFFFFF" : colors.black },
+                  selectedVote === "notCredible" ? styles.voteTextActive : null,
+                ]}
+              >
+                不可信({notCredibleCount})
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.divider }]} />
+
+          <Pressable
+            accessibilityLabel="View full incident"
+            accessibilityRole="button"
+            disabled={!report?.id}
+            onPress={handleViewFullEvent}
+            style={[styles.fullEventButton, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted }]}
+          >
+            <Text style={styles.fullEventText}>點擊查看完整事件</Text>
           </Pressable>
-        </View>
+        </Animated.View>
 
-        <View style={styles.divider} />
-
-        <Pressable
-          accessibilityLabel="View full incident"
-          accessibilityRole="button"
-          disabled={!report?.id}
-          onPress={handleViewFullEvent}
-          style={styles.fullEventButton}
-        >
-          <Text style={styles.fullEventText}>點擊查看完整事件</Text>
-        </Pressable>
-      </Animated.View>
-
-      <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
+        <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
       </View>
     </Modal>
   );

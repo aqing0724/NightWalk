@@ -1,5 +1,5 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
-
+import { useTheme } from "../ThemeContext"; // 🎯 功能性引入：讓元件能看懂白天黑夜
 import { colors, fontSizes } from "../constants/theme";
 
 const redDangerIcon = require("../../assets/redDanger.png");
@@ -19,6 +19,7 @@ function formatDistance(distanceMeters) {
 }
 
 export default function DangerAreaCard({ report, onPress }) {
+  const { themeMode } = useTheme();
   const subtitle = report
     ? report.locationText ||
       report.selectedAddress ||
@@ -38,25 +39,29 @@ export default function DangerAreaCard({ report, onPress }) {
         pressed && report ? styles.cardPressed : null,
       ]}
     >
-      <View style={styles.card}>
+      <View style={[styles.card, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}>
         <View style={styles.iconBubble}>
           <Image source={warningIcon} style={styles.warningIcon} />
         </View>
 
         <View style={styles.copy}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle} numberOfLines={1}>
+
+          <Text style={[styles.title, { color: themeMode === "dark" ? "#FFFFFF" : colors.black }]}>
+            {report ? "危險區域" : "安全提示"}
+          </Text>
+          <Text style={[styles.subtitle, { color: themeMode === "dark" ? "#AAAAAA" : colors.black }]} numberOfLines={1}>
             {subtitle}
           </Text>
           {report ? (
-            <Text style={styles.distance}>
+            <Text style={[styles.distance, { color: themeMode === "dark" ? "#AAAAAA" : colors.black }]}>
               {formatDistance(report.distanceMeters)}
             </Text>
           ) : null}
         </View>
 
         <View style={styles.chevronBubble}>
-          <Image source={pointRightIcon} style={styles.chevronIcon} />
+          {/* 🎯 5. 右側箭頭連動：夜間轉白，白天維持你原本的 colors.black */}
+          <Image source={pointRightIcon} style={[styles.chevronIcon, { tintColor: themeMode === "dark" ? "#FFFFFF" : colors.black }]} />
         </View>
       </View>
     </Pressable>

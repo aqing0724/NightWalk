@@ -18,6 +18,7 @@ import DangerAreaCard from "./components/DangerAreaCard";
 import DangerAreaSheet from "./components/DangerAreaSheet";
 import { colors, fontSizes } from "./constants/theme";
 import { db } from "../firebase";
+import { useTheme } from "./ThemeContext"; // 🎯 確保這行是單獨、乾淨的一行，直接貼在 db 下方
 
 const centerIcon = require("../assets/location-crosshairs.png");
 const typeMarkerImage = require("../assets/TypeMarker.png");
@@ -168,6 +169,7 @@ function worldPointToCoordinate(point, zoom) {
 export default function Page() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { themeMode } = useTheme();
   const mapRef = useRef(null);
   const locatingPulse = useRef(new Animated.Value(0)).current;
   const locatingSpin = useRef(new Animated.Value(0)).current;
@@ -413,7 +415,8 @@ export default function Page() {
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
           style={styles.map}
-          userInterfaceStyle="dark"
+          userInterfaceStyle={themeMode} 
+          customMapStyle={themeMode === "dark" ? googleMapDarkStyle : []} 
           initialCamera={{
             center: initialMapCenter,
             ...cameraSettings,
@@ -674,3 +677,17 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
 });
+// 🎯 請直接貼在檔案最底部（styles 的大括號外面）
+
+const googleMapDarkStyle = [
+  { "elementType": "geometry", "stylers": [{ "color": "#212121" }] },
+  { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+  { "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+  { "elementType": "labels.text.stroke", "stylers": [{ "color": "#212121" }] },
+  { "featureType": "administrative", "elementType": "geometry", "stylers": [{ "color": "#757575" }] },
+  { "featureType": "poi", "elementType": "labels.text.fill", "stylers": [{ "color": "#757575" }] },
+  { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#181818" }] },
+  { "featureType": "road", "elementType": "geometry.fill", "stylers": [{ "color": "#2c2c2c" }] },
+  { "featureType": "road", "elementType": "labels.text.fill", "stylers": [{ "color": "#8a8a8a" }] },
+  { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#000000" }] }
+];
