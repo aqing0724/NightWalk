@@ -60,6 +60,13 @@ function getAuthErrorMessage(error) {
       return "嘗試次數過多，請稍後再試。";
     case "auth/operation-not-allowed":
       return "Firebase 尚未啟用電子郵件/密碼登入。";
+    case "auth/user-disabled":
+      return "這個帳號已被停用，請聯絡管理員。";
+    case "auth/invalid-api-key":
+    case "auth/app-not-authorized":
+      return "Firebase 登入設定有誤，請確認目前 App 的環境變數。";
+    case "auth/internal-error":
+      return "Firebase 登入服務暫時發生錯誤，請重新啟動 App 後再試。";
     default:
       return "目前無法完成登入，請稍後再試。";
   }
@@ -150,8 +157,11 @@ export default function LoginPage() {
 
       setPassword("");
       setConfirmPassword("");
-      router.replace("/Account");
     } catch (error) {
+      console.error("登入失敗:", {
+        code: error?.code,
+        message: error?.message,
+      });
       Alert.alert("登入失敗", getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);

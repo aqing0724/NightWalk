@@ -129,7 +129,6 @@ export default function AccountPage() {
   async function handleSignOut() {
     try {
       await signOut(auth);
-      router.replace("/Login");
     } catch (error) {
       console.error("登出失敗:", error);
       Alert.alert("登出失敗", "目前無法登出，請稍後再試。");
