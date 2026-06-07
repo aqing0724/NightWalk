@@ -6,6 +6,7 @@ const mailIcon = require("../assets/Mail2.png");
 const compassIcon = require("../assets/Compass.png");
 const typeIcon = require("../assets/Type.png");
 const clockIcon = require("../assets/Clock.png");
+
 import { useTheme } from "./ThemeContext"; // 🎯 1. 引入全域主題鉤子
 
 import { useEffect, useState } from "react"; // 1. 確保有引入 useEffect 和 useState
@@ -31,8 +32,10 @@ import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實�
 import { colors, fontSizes } from "./constants/theme";
 
 export default function AccountPage() {
-  const { themeMode, colors, toggleTheme } = useTheme();
+  // 🎯 修改：加入 currentAvatarSource（圖片資產）與 changeAvatar（變換函式）
+  const { themeMode, colors, toggleTheme, currentAvatarSource, changeAvatar, currentAvatarId,allAvatars } = useTheme();
   const [currentView, setCurrentView] = useState("profile"); // "profile" 或 "settings"
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false); // 控制頭像選單
   const [isDarkMode, setIsDarkMode] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -42,6 +45,8 @@ export default function AccountPage() {
   // 🎯 建立儲存 Firebase 資料的 State（取代原本的模擬資料）
   const [historyData, setHistoryData] = useState([]);
   const [userStats, setUserStats] = useState({ reports: 0, likes: 0 });
+
+  
 
   // 檢查登入狀態
   useEffect(() => {
@@ -234,14 +239,43 @@ const renderItem = ({ item }) => {
           <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: colors.text }}>設定</Text>          
           <View style={{ width: 32 }} />
         </View>
-
-        {/* 大頭貼 */}
+{/* 大頭貼與點擊多一層選單 */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarPlaceholderLarge}>
-            <Image source={accountCircle} style={[styles.avatarImage, { tintColor: colors.text }]} />
+            <Image source={currentAvatarSource} style={styles.avatarImage} />
           </View>
-          {/* 🎯 修正：編輯頭像文字顏色動態綁定 colors.text */}
-          <Pressable><Text style={[styles.editAvatarText, { color: colors.text }]}>編輯頭像</Text></Pressable>
+          
+          {/* 🎯 2. 點擊編輯頭像：切換開關狀態，讓下面的圖片選單展開或收合 */}
+          <Pressable onPress={() => setShowAvatarPicker(!showAvatarPicker)}>
+            <Text style={[styles.editAvatarText, { color: showAvatarPicker ? "#A3B7AC" : colors.text }]}>
+              {showAvatarPicker ? "收起頭像選單 ▲" : "編輯頭像 ▼"}
+            </Text>
+          </Pressable>
+
+          {/* 🎯 3. 多一層條件渲染：只有當 showAvatarPicker 為 true 時，三張圖片才會直觀顯示出來 */}
+          {showAvatarPicker && (
+            <View style={styles.avatarPickerRow}>
+              {Object.keys(allAvatars).map((key) => {
+                const isSelected = currentAvatarId === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => {
+                      changeAvatar(key);
+                      // 選完之後如果你希望自動收起來，可以把下面這行註解解開：
+                      // setShowAvatarPicker(false);
+                    }}
+                    style={[
+                      styles.avatarPickerItem,
+                      { borderColor: isSelected ? "#A3B7AC" : "transparent" }
+                    ]}
+                  >
+                    <Image source={allAvatars[key]} style={styles.avatarPickerImage} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* 基本資訊 */}
@@ -339,7 +373,7 @@ const renderItem = ({ item }) => {
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatarPlaceholder}>
-            <Image source={accountCircle} style={[styles.avatarImage, { tintColor: colors.text }]} />
+            <Image source={currentAvatarSource} style={styles.avatarImage} />
           </View>
             <Text style={[styles.userName, { color: colors.text }]}>
             {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
@@ -671,5 +705,26 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
     marginRight: 4,             // 與時間文字的小間距
   },
-  
+  // 🎯 請直接貼在 styles 大括號內部的最尾端
+  avatarPickerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    gap: 12, // 讓三張圖之間有舒適的間距
+  },
+  avatarPickerItem: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 3, // 用 3 號邊框來凸顯選中狀態
+    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarPickerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
+  },
 });
