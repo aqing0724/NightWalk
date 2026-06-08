@@ -367,19 +367,33 @@ const renderItem = ({ item }) => {
 
   return (
 <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+        <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.transparent} translucent />
 
       {/* 1. 頂部個人資訊 */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 16) + 12 }]}>
         <View style={styles.userInfo}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="編輯頭像"
+            hitSlop={12}
+            onPress={() => setCurrentView("settings")}
+            style={styles.avatarButton}
+          >
           <View style={styles.avatarPlaceholder}>
             <Image source={currentAvatarSource} style={styles.avatarImage} />
           </View>
+          </Pressable>
             <Text style={[styles.userName, { color: colors.text }]}>
             {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
           </Text>
         </View>
-          <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="設定"
+            hitSlop={12}
+            onPress={() => setCurrentView("settings")}
+            style={styles.settingButton}
+          >
           <Image
              source={settingsIcon}
               style={[
@@ -433,11 +447,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 24,
-    marginTop: 20,
+    paddingBottom: 4,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  avatarButton: {
+    minWidth: 64,
+    minHeight: 64,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarPlaceholder: {
     width: 64,
@@ -459,7 +479,10 @@ const styles = StyleSheet.create({
   
   },
   settingButton: {
-    padding: 8,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navIcon: {
     width: 28,
