@@ -7,6 +7,8 @@ const compassIcon = require("../assets/Compass.png");
 const typeIcon = require("../assets/Type.png");
 const clockIcon = require("../assets/Clock.png");
 
+import { useTheme } from "./ThemeContext"; // 🎯 1. 引入全域主題鉤子
+
 import { useEffect, useState } from "react"; // 1. 確保有引入 useEffect 和 useState
 import {
   StatusBar,
@@ -30,7 +32,10 @@ import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實�
 import { colors, fontSizes } from "./constants/theme";
 
 export default function AccountPage() {
+  // 🎯 修改：加入 currentAvatarSource（圖片資產）與 changeAvatar（變換函式）
+  const { themeMode, colors, toggleTheme, currentAvatarSource, changeAvatar, currentAvatarId,allAvatars } = useTheme();
   const [currentView, setCurrentView] = useState("profile"); // "profile" 或 "settings"
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false); // 控制頭像選單
   const [isDarkMode, setIsDarkMode] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -40,6 +45,8 @@ export default function AccountPage() {
   // 🎯 建立儲存 Firebase 資料的 State（取代原本的模擬資料）
   const [historyData, setHistoryData] = useState([]);
   const [userStats, setUserStats] = useState({ reports: 0, likes: 0 });
+
+  
 
   // 檢查登入狀態
   useEffect(() => {
@@ -142,16 +149,12 @@ const renderItem = ({ item }) => {
 
     return (
       <Pressable 
-        style={styles.card} 
+        // 🎯 修正：卡片背景色跟隨 colors.surfaceMuted（暗色時變深灰），消除原本寫死的 #FFFFFF
+        style={[styles.card, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]} 
         onPress={() => {
-          // 🎯 決定要跳轉的目標 reportId
           const targetReportId = isReport ? item.id : item.reportId;
-          
           if (targetReportId) {
-            router.push({
-              pathname: "/detail",
-              params: { reportId: targetReportId }
-            });
+            router.push({ pathname: "/detail", params: { reportId: targetReportId } });
           } else {
             Alert.alert("提示", "無法追蹤該資料的原始回報頁面。");
           }
@@ -162,25 +165,26 @@ const renderItem = ({ item }) => {
           <Image 
             source={isReport ? mailIcon : messageSquare} 
             style={[
-              styles.cardItemIcon, // 🎯 確保套用這個樣式來固定寬高
-              { tintColor: isDarkMode ? "#FFFFFF" : "#000000" } 
+              styles.cardItemIcon,
+              // 🎯 修正：圖示 tintColor 改用全域的 colors.text
+              { tintColor: colors.text } 
             ]} 
           />
-          <Text style={[styles.cardTypeText, { color: isDarkMode ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
+          <Text style={[styles.cardTypeText, { color: themeMode === "dark" ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
             {isReport ? "回報" : "評論"}
           </Text>
         </View>
 
-        {/* 卡片中間：動態顯示內文 */}
-{/* 卡片中間：動態顯示內文 */}
         <View style={styles.cardMiddle}>
           {isReport ? (
             <>
-              <Text style={styles.cardTitle}>{item.locationText || "未知名稱"}</Text>
+              {/* 🎯 修正：標題文字顏色跟隨 colors.text */}
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
               
               <View style={styles.tagWrapper}>
-                <View style={styles.grayTag}>
-                  <Text style={styles.grayTagText}>
+                {/* 🎯 修正：標籤底色在暗色模式時稍微加深 */}
+                <View style={[styles.grayTag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}>
+                  <Text style={[styles.grayTagText, { color: themeMode === "dark" ? "#DDDDDD" : "#555555" }]}>
                     {item.types && item.types.length > 0 
                       ? item.types.map(t => t === "theft" ? "偷竊" : t === "harass" ? "騷擾" : t === "track" ? "跟蹤" : t).join(", ") 
                       : "一般"}
@@ -190,9 +194,8 @@ const renderItem = ({ item }) => {
             </>
           ) : (
             <>
-              {/* 評論卡片 */}
-              <Text style={styles.cardTitle}>{item.locationText || "未知名稱"}</Text>
-              <Text style={styles.cardSubText} numberOfLines={1}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
+              <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]} numberOfLines={1}>
                 {item.message || "空白內容"}
               </Text>
             </>
@@ -203,16 +206,16 @@ const renderItem = ({ item }) => {
               source={clockIcon} 
               style={[
                 styles.timeIcon, 
-                { tintColor: isDarkMode ? "#AAAAAA" : "#888888" }
+                // 🎯 修正：時鐘圖示 tintColor 跟隨 colors.textMuted
+                { tintColor: themeMode === "dark" ? "#AAAAAA" : "#888888" }
               ]} 
             />
-            <Text style={styles.cardSubText}>
+            <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]}>
               {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
             </Text>
           </View>
         </View>
 
-        {/* 卡片右側：箭頭 */}
         <View style={styles.cardRight}>
           <Text style={styles.arrow}>❯</Text>
         </View>
@@ -223,98 +226,119 @@ const renderItem = ({ item }) => {
     return <View style={styles.screen} />;
   }
 
-  if (currentView === "settings") {
+ if (currentView === "settings") {
     return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
-        
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: colors.background }]}>                 
+        <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
+
         {/* 頂部導航 */}
         <View style={styles.settingsHeader}>
           <Pressable onPress={() => setCurrentView("profile")} style={{ padding: 8 }}>
-            <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold" }}>❮</Text>
+            <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: colors.text }}>❮</Text>            
           </Pressable>
-          <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: "#000000" }}>設定</Text>
+          <Text style={{ fontSize: fontSizes.titleLarge, fontWeight: "bold", color: colors.text }}>設定</Text>          
           <View style={{ width: 32 }} />
         </View>
-
-        {/* 大頭貼 */}
+{/* 大頭貼與點擊多一層選單 */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarPlaceholderLarge}>
-            <Image source={accountCircle} style={styles.avatarImage} />
+            <Image source={currentAvatarSource} style={styles.avatarImage} />
           </View>
-          <Pressable><Text style={styles.editAvatarText}>編輯頭像</Text></Pressable>
+          
+          {/* 🎯 2. 點擊編輯頭像：切換開關狀態，讓下面的圖片選單展開或收合 */}
+          <Pressable onPress={() => setShowAvatarPicker(!showAvatarPicker)}>
+            <Text style={[styles.editAvatarText, { color: showAvatarPicker ? "#A3B7AC" : colors.text }]}>
+              {showAvatarPicker ? "收起頭像選單 ▲" : "編輯頭像 ▼"}
+            </Text>
+          </Pressable>
+
+          {/* 🎯 3. 多一層條件渲染：只有當 showAvatarPicker 為 true 時，三張圖片才會直觀顯示出來 */}
+          {showAvatarPicker && (
+            <View style={styles.avatarPickerRow}>
+              {Object.keys(allAvatars).map((key) => {
+                const isSelected = currentAvatarId === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => {
+                      changeAvatar(key);
+                      // 選完之後如果你希望自動收起來，可以把下面這行註解解開：
+                      // setShowAvatarPicker(false);
+                    }}
+                    style={[
+                      styles.avatarPickerItem,
+                      { borderColor: isSelected ? "#A3B7AC" : "transparent" }
+                    ]}
+                  >
+                    <Image source={allAvatars[key]} style={styles.avatarPickerImage} />
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </View>
 
         {/* 基本資訊 */}
-        <Text style={styles.sectionTitle}>基本資訊</Text>
-        <View style={styles.cardGroup}>
-          <View style={styles.row}>
+        {/* 🎯 修正：基本資訊標題文字動態綁定 colors.text */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>基本資訊</Text>
+        <View style={[styles.cardGroup, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>          
+          {/* 🎯 修正：橫列邊框色在夜間模式時自動換成深灰色分割線 */}
+          <View style={[styles.row, { borderBottomColor: themeMode === "dark" ? "#2C2C2C" : "#F0F0F0" }]}>
             <View style={styles.rowLeft}>
-              <Image
-                source={typeIcon}
-                style={[
-                  styles.rowItemIcon,
-                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
-                ]}
-              />
-              <Text style={styles.rowLabel}>使用者名稱</Text>
+              <Image source={typeIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              {/* 🎯 修正：欄位名稱標籤文字改為 dynamic colors.text */}
+              <Text style={[styles.rowLabel, { color: colors.text }]}>使用者名稱</Text>
             </View>
-            <Text style={styles.rowValue}>{currentUser.displayName || "夜行者__22"}</Text>
+            {/* 🎯 修正：欄位真實數值在夜間改為淡灰色，白天為深灰，對齊截圖質感 */}
+            <Text style={[styles.rowValue, { color: themeMode === "dark" ? "#AAAAAA" : "#777777" }]}>
+              {currentUser.displayName || currentUser.email?.split('@')[0] || "夜行者__22"}
+            </Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Image
-                source={mailIcon}
-                style={[
-                  styles.rowItemIcon,
-                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
-                ]}
-              />
-              <Text style={styles.rowLabel}>電子郵件</Text>
+              <Image source={mailIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>電子郵件</Text>
             </View>
-            <Text style={styles.rowValue} numberOfLines={1}>{currentUser.email || "xxxxxxx@gmail.com"}</Text>
+            <Text style={[styles.rowValue, { color: themeMode === "dark" ? "#AAAAAA" : "#777777" }]} numberOfLines={1}>
+              {currentUser.email || "xxxxxxx@gmail.com"}
+            </Text>
           </View>
         </View>
 
         {/* 其他設定 */}
-        <Text style={styles.sectionTitle}>其他</Text>
-        <View style={styles.cardGroup}>
-          <View style={styles.row}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>其他</Text>
+        <View style={[styles.cardGroup, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
+          <View style={[styles.row, { borderBottomColor: themeMode === "dark" ? "#2C2C2C" : "#F0F0F0" }]}>
             <View style={styles.rowLeft}>
+              {/* 🎯 修正：月亮 icon 點亮時是你們專屬莫蘭迪綠 (#A3B7AC)，關閉時動態跟隨主色調（白天黑/夜間白） */}
               <Image
                 source={nightModeIcon}
                 style={[
                   styles.rowItemIcon,
-                  { tintColor: isDarkMode ? "#A3B7AC" : "#777777" } // 💡 點亮時變成你們專案的莫蘭迪綠，關閉時是灰色
+                  { tintColor: colors.text }
                 ]}
               />
-              <Text style={styles.rowLabel}>夜間模式</Text>
+              <Text style={[styles.rowLabel, { color: colors.text }]}>夜間模式</Text>
             </View>
             <Switch
-              value={isDarkMode}
-              onValueChange={setIsDarkMode}
-              trackColor={{ false: "#D1D1D6", true: "#A3B7AC" }}
-              thumbColor={"#FFFFFF"}
+              trackColor={{ false: "#767577", true: colors.special }}
+              thumbColor={themeMode === "dark" ? colors.white : "#f4f3f4"}
+              onValueChange={toggleTheme}
+              value={themeMode === "dark"}
             />
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Image
-                source={compassIcon}
-                style={[
-                  styles.rowItemIcon,
-                  { tintColor: isDarkMode ? "#FFFFFF" : "#000000" } // 💡 讓指南針也能跟著夜間模式變換黑白顏色
-                ]}
-              />
-              <Text style={styles.rowLabel}>App導覽</Text>
+              <Image source={compassIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              <Text style={[styles.rowLabel, { color: colors.text }]}>App導覽</Text>
             </View>
-            <Text style={styles.arrow}>❯</Text>
+            <Text style={[styles.arrow, { color: themeMode === "dark" ? "#666666" : "#CCCCCC" }]}>❯</Text>
           </View>
         </View>
 
         <View style={styles.buttonGroup}>
           <Pressable 
-            style={styles.logoutButton} 
+            style={[styles.logoutButton, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF", borderColor: themeMode === "dark" ? "#2C2C2C" : "#E0E0E0" }]}
             onPress={() => {
               Alert.alert("登出帳號", "確定要登出嗎？", [
                 { text: "取消", style: "cancel" },
@@ -341,30 +365,29 @@ const renderItem = ({ item }) => {
     );
   }
 
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+<View style={[styles.container, { backgroundColor: colors.background }]}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* 1. 頂部個人資訊 */}
       <View style={styles.header}>
         <View style={styles.userInfo}>
           <View style={styles.avatarPlaceholder}>
-            <Image source={accountCircle} style={styles.avatarImage} />
+            <Image source={currentAvatarSource} style={styles.avatarImage} />
           </View>
-          <Text style={styles.userName}>
+            <Text style={[styles.userName, { color: colors.text }]}>
             {currentUser.displayName || currentUser.email?.split('@')[0] || "使用者名稱"}
           </Text>
         </View>
-        <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
+          <Pressable onPress={() => setCurrentView("settings")} style={styles.settingButton}>
           <Image
-            source={settingsIcon}
-            style={[
+             source={settingsIcon}
+              style={[
               styles.navIcon,
-              { tintColor: isDarkMode ? "#FFFFFF" : "#000000" }
-            ]}
-          />
-        </Pressable>
+              { tintColor: colors.text }
+        ]}
+      />
+          </Pressable>
       </View>
 
       {/* 2. 數據看板 */}
@@ -404,7 +427,6 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: "#F9F9F9", // 配合圖片的淺灰底色
   },
   header: {
     flexDirection: "row",
@@ -434,7 +456,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.titleLarge,
     fontWeight: "bold",
     marginLeft: 16,
-    color: "#1A1A1A",
+  
   },
   settingButton: {
     padding: 8,
@@ -479,7 +501,6 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -551,7 +572,6 @@ const styles = StyleSheet.create({
   editAvatarText: {
     fontSize: fontSizes.bodySmall,
     fontWeight: "bold",
-    color: "#000000",
     marginTop: 12,
   },
   sectionTitle: {
@@ -563,7 +583,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   cardGroup: {
-    backgroundColor: "#FFFFFF",
     marginHorizontal: 20,
     borderRadius: 12,
     paddingHorizontal: 16,
@@ -685,5 +704,27 @@ const styles = StyleSheet.create({
     height: 14,
     resizeMode: "contain",
     marginRight: 4,             // 與時間文字的小間距
+  },
+  // 🎯 請直接貼在 styles 大括號內部的最尾端
+  avatarPickerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    gap: 12, // 讓三張圖之間有舒適的間距
+  },
+  avatarPickerItem: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 3, // 用 3 號邊框來凸顯選中狀態
+    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarPickerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "contain",
   },
 });

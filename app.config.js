@@ -23,6 +23,9 @@ export default {
     ],
     name: "nightwalk",
     slug: "nightwalk",
+    "slug": "NightWalk",
+    "jsEngine": "jsc",
+    "version": "1.0.0",
     androidNavigationBar: {
       backgroundColor: "#F7F7F7",
       barStyle: "dark-content",
