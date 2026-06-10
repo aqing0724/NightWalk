@@ -9,27 +9,115 @@ const clockIcon = require("../assets/Clock.png");
 
 import { useTheme } from "./ThemeContext"; // 🎯 1. 引入全域主題鉤子
 
-import { useEffect, useState } from "react"; // 1. 確保有引入 useEffect 和 useState
+import { useCallback, useEffect, useRef, useState } from "react"; // 1. 確保有引入 useEffect 和 useState
 import {
+  Animated,
   StatusBar,
   StyleSheet,
   Text,
   View,
   Pressable,
   FlatList,
+  RefreshControl,
   Switch,
   Alert,
   Image,
+  PanResponder,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 2. 引入 Firestore 相關語法
-import { collection, query, where, orderBy, onSnapshot, collectionGroup } from "firebase/firestore"; 
+import { collection, query, where, orderBy, onSnapshot, collectionGroup, deleteDoc, doc } from "firebase/firestore";
 
 import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實例)
 import { colors, fontSizes } from "./constants/theme";
+
+const historyDeleteActionWidth = 76;
+const presetDangerTypeLabels = {
+  theft: "偷竊",
+  harass: "騷擾",
+  track: "跟蹤",
+};
+
+function formatDangerType(type) {
+  if (typeof type !== "string") return "#未分類";
+
+  const presetLabel = presetDangerTypeLabels[type];
+  if (presetLabel) return `#${presetLabel}`;
+
+  const label = type
+    .replace(/^(?:custom:)+/i, "")
+    .replace(/^:+/, "")
+    .replace(/^(?:#|＃)+/, "")
+    .trim();
+
+  return `#${label || "未分類"}`;
+}
+
+function SwipeToDelete({ children, onDelete, surfaceColor }) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const isDeleteActionOpenRef = useRef(false);
+  const dragStartXRef = useRef(0);
+
+  const animateTo = useCallback((toValue) => {
+    isDeleteActionOpenRef.current = toValue !== 0;
+    Animated.spring(translateX, {
+      toValue,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [translateX]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        gestureState.dx < -12 &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5,
+      onPanResponderGrant: () => {
+        dragStartXRef.current = isDeleteActionOpenRef.current ? -historyDeleteActionWidth : 0;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextTranslateX = Math.max(
+          -historyDeleteActionWidth,
+          Math.min(0, dragStartXRef.current + gestureState.dx)
+        );
+        translateX.setValue(nextTranslateX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const nextTranslateX = dragStartXRef.current + gestureState.dx;
+        animateTo(nextTranslateX < -historyDeleteActionWidth / 2 ? -historyDeleteActionWidth : 0);
+      },
+      onPanResponderTerminate: () => {
+        animateTo(isDeleteActionOpenRef.current ? -historyDeleteActionWidth : 0);
+      },
+      onPanResponderTerminationRequest: (_, gestureState) =>
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onShouldBlockNativeResponder: () => false,
+    })
+  ).current;
+
+  return (
+    <View style={[styles.historySwipeContainer, { backgroundColor: surfaceColor }]}>
+      <Pressable
+        accessibilityLabel="刪除紀錄"
+        accessibilityRole="button"
+        onPress={onDelete}
+        style={styles.historyDeleteButton}
+      >
+        <Text style={styles.historyDeleteText}>刪除</Text>
+      </Pressable>
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={{ transform: [{ translateX }] }}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
 
 export default function AccountPage() {
   // 🎯 修改：加入 currentAvatarSource（圖片資產）與 changeAvatar（變換函式）
@@ -45,6 +133,8 @@ export default function AccountPage() {
   // 🎯 建立儲存 Firebase 資料的 State（取代原本的模擬資料）
   const [historyData, setHistoryData] = useState([]);
   const [userStats, setUserStats] = useState({ reports: 0, likes: 0 });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   
 
@@ -66,6 +156,14 @@ export default function AccountPage() {
 
     let reportsData = [];
     let commentsData = [];
+    let reportsLoaded = false;
+    let commentsLoaded = false;
+
+    const finishRefreshIfReady = () => {
+      if (reportsLoaded && commentsLoaded) {
+        setIsRefreshing(false);
+      }
+    };
 
     // 🎯 歷史紀錄大合體的更新函式
     const updateHistoryList = () => {
@@ -103,8 +201,14 @@ export default function AccountPage() {
     );
     const unsubscribeReports = onSnapshot(reportsQuery, (snapshot) => {
       reportsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      reportsLoaded = true;
       updateHistoryList();
-    }, (error) => console.error("讀取回報失敗:", error));
+      finishRefreshIfReady();
+    }, (error) => {
+      reportsLoaded = true;
+      finishRefreshIfReady();
+      console.error("讀取回報失敗:", error);
+    });
 
     // ─── 監聽 2：跨貼文監聽使用者寫過的「評論」 ───
     // 💡 這裡會去撈取所有 reports/*/comments 底下 userId 等於目前登入者的資料
@@ -121,8 +225,12 @@ export default function AccountPage() {
           locationText: data.locationText || "未知名稱",
           ...data };
       });
+      commentsLoaded = true;
       updateHistoryList();
+      finishRefreshIfReady();
     }, (error) => {
+      commentsLoaded = true;
+      finishRefreshIfReady();
       console.error("讀取評論失敗，可能需要建立 Index 索引:", error);
     });
 
@@ -131,7 +239,13 @@ export default function AccountPage() {
       unsubscribeReports();
       unsubscribeComments();
     };
-  }, [currentUser]);
+  }, [currentUser, refreshCount]);
+
+  function handleRefresh() {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshCount((currentCount) => currentCount + 1);
+  }
 
   async function handleSignOut() {
     try {
@@ -142,84 +256,120 @@ export default function AccountPage() {
     }
   }
 
-
-
-const renderItem = ({ item }) => {
+  function handleDeleteHistoryItem(item) {
     const isReport = item.listType === "report";
+    const title = isReport ? "刪除回報" : "刪除留言";
+    const message = isReport
+      ? "確定要刪除這筆回報嗎？刪除後將無法復原。"
+      : "確定要刪除這則留言嗎？刪除後將無法復原。";
+
+    Alert.alert(title, message, [
+      { text: "取消", style: "cancel" },
+      {
+        text: "確定刪除",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            if (isReport) {
+              await deleteDoc(doc(db, "reports", item.id));
+            } else if (item.reportId) {
+              await deleteDoc(doc(db, "reports", item.reportId, "comments", item.id));
+            } else {
+              Alert.alert("刪除失敗", "找不到這則留言所屬的回報。");
+            }
+          } catch (error) {
+            console.error(`刪除${isReport ? "回報" : "留言"}失敗:`, error);
+            Alert.alert("刪除失敗", `目前無法刪除${isReport ? "回報" : "留言"}，請稍後再試。`);
+          }
+        },
+      },
+    ]);
+  }
+
+  const renderItem = ({ item }) => {
+    const isReport = item.listType === "report";
+    const surfaceColor = themeMode === "dark" ? "#1E1E1E" : "#FFFFFF";
 
     return (
-      <Pressable 
-        // 🎯 修正：卡片背景色跟隨 colors.surfaceMuted（暗色時變深灰），消除原本寫死的 #FFFFFF
-        style={[styles.card, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]} 
-        onPress={() => {
-          const targetReportId = isReport ? item.id : item.reportId;
-          if (targetReportId) {
-            router.push({ pathname: "/detail", params: { reportId: targetReportId } });
-          } else {
-            Alert.alert("提示", "無法追蹤該資料的原始回報頁面。");
-          }
-        }}
+      <SwipeToDelete
+        onDelete={() => handleDeleteHistoryItem(item)}
+        surfaceColor={surfaceColor}
       >
+        <Pressable
+          // 🎯 修正：卡片背景色跟隨 colors.surfaceMuted（暗色時變深灰），消除原本寫死的 #FFFFFF
+          style={[styles.card, { backgroundColor: surfaceColor }]}
+          onPress={() => {
+            const targetReportId = isReport ? item.id : item.reportId;
+            if (targetReportId) {
+              router.push({ pathname: "/detail", params: { reportId: targetReportId } });
+            } else {
+              Alert.alert("提示", "無法追蹤該資料的原始回報頁面。");
+            }
+          }}
+        >
 
-        <View style={styles.cardLeft}>
-          <Image 
-            source={isReport ? mailIcon : messageSquare} 
-            style={[
-              styles.cardItemIcon,
-              // 🎯 修正：圖示 tintColor 改用全域的 colors.text
-              { tintColor: colors.text } 
-            ]} 
-          />
-          <Text style={[styles.cardTypeText, { color: themeMode === "dark" ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
-            {isReport ? "回報" : "評論"}
-          </Text>
-        </View>
-
-        <View style={styles.cardMiddle}>
-          {isReport ? (
-            <>
-              {/* 🎯 修正：標題文字顏色跟隨 colors.text */}
-              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
-              
-              <View style={styles.tagWrapper}>
-                {/* 🎯 修正：標籤底色在暗色模式時稍微加深 */}
-                <View style={[styles.grayTag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}>
-                  <Text style={[styles.grayTagText, { color: themeMode === "dark" ? "#DDDDDD" : "#555555" }]}>
-                    {item.types && item.types.length > 0 
-                      ? item.types.map(t => t === "theft" ? "偷竊" : t === "harass" ? "騷擾" : t === "track" ? "跟蹤" : t).join(", ") 
-                      : "一般"}
-                  </Text>
-                </View>
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
-              <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]} numberOfLines={1}>
-                {item.message || "空白內容"}
-              </Text>
-            </>
-          )}
-          
-          <View style={styles.timeRow}>
-            <Image 
-              source={clockIcon} 
+          <View style={styles.cardLeft}>
+            <Image
+              source={isReport ? mailIcon : messageSquare}
               style={[
-                styles.timeIcon, 
-                // 🎯 修正：時鐘圖示 tintColor 跟隨 colors.textMuted
-                { tintColor: themeMode === "dark" ? "#AAAAAA" : "#888888" }
-              ]} 
+                styles.cardItemIcon,
+                // 🎯 修正：圖示 tintColor 改用全域的 colors.text
+                { tintColor: colors.text }
+              ]}
             />
-            <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]}>
-              {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
+            <Text style={[styles.cardTypeText, { color: themeMode === "dark" ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
+              {isReport ? "回報" : "評論"}
             </Text>
           </View>
-        </View>
 
-        <View style={styles.cardRight}>
-          <Text style={styles.arrow}>❯</Text>
-        </View>
-      </Pressable>
+          <View style={styles.cardMiddle}>
+            {isReport ? (
+              <>
+                {/* 🎯 修正：標題文字顏色跟隨 colors.text */}
+                <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
+
+                <View style={styles.tagWrapper}>
+                  {(item.types?.length ? item.types : ["一般"]).map((type, index) => (
+                    <View
+                      key={`${type}-${index}`}
+                      style={[styles.grayTag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}
+                    >
+                      <Text style={[styles.grayTagText, { color: themeMode === "dark" ? "#DDDDDD" : "#555555" }]}>
+                        {formatDangerType(type)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
+                <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]} numberOfLines={1}>
+                  {item.message || "空白內容"}
+                </Text>
+              </>
+            )}
+
+            <View style={styles.timeRow}>
+              <Image
+                source={clockIcon}
+                style={[
+                  styles.timeIcon,
+                  // 🎯 修正：時鐘圖示 tintColor 跟隨 colors.textMuted
+                  { tintColor: themeMode === "dark" ? "#AAAAAA" : "#888888" }
+                ]}
+              />
+              <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]}>
+                {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.cardRight}>
+            <Text style={styles.arrow}>❯</Text>
+          </View>
+        </Pressable>
+      </SwipeToDelete>
     );
   };
   if (!authChecked || !currentUser) {
@@ -285,7 +435,7 @@ const renderItem = ({ item }) => {
           {/* 🎯 修正：橫列邊框色在夜間模式時自動換成深灰色分割線 */}
           <View style={[styles.row, { borderBottomColor: themeMode === "dark" ? "#2C2C2C" : "#F0F0F0" }]}>
             <View style={styles.rowLeft}>
-              <Image source={typeIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              <Image source={typeIcon} style={[styles.rowItemIcon, { tintColor: colors.special }]} />
               {/* 🎯 修正：欄位名稱標籤文字改為 dynamic colors.text */}
               <Text style={[styles.rowLabel, { color: colors.text }]}>使用者名稱</Text>
             </View>
@@ -296,7 +446,7 @@ const renderItem = ({ item }) => {
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Image source={mailIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              <Image source={mailIcon} style={[styles.rowItemIcon, { tintColor: colors.special }]} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>電子郵件</Text>
             </View>
             <Text style={[styles.rowValue, { color: themeMode === "dark" ? "#AAAAAA" : "#777777" }]} numberOfLines={1}>
@@ -315,21 +465,23 @@ const renderItem = ({ item }) => {
                 source={nightModeIcon}
                 style={[
                   styles.rowItemIcon,
-                  { tintColor: colors.text }
+                  { tintColor: colors.special }
                 ]}
               />
               <Text style={[styles.rowLabel, { color: colors.text }]}>夜間模式</Text>
             </View>
-            <Switch
-              trackColor={{ false: "#767577", true: colors.special }}
-              thumbColor={themeMode === "dark" ? colors.white : "#f4f3f4"}
-              onValueChange={toggleTheme}
-              value={themeMode === "dark"}
-            />
+            <View style={styles.themeSwitchContainer}>
+              <Switch
+                trackColor={{ false: "#767577", true: colors.special }}
+                thumbColor={themeMode === "dark" ? colors.white : "#f4f3f4"}
+                onValueChange={toggleTheme}
+                value={themeMode === "dark"}
+              />
+            </View>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View style={styles.rowLeft}>
-              <Image source={compassIcon} style={[styles.rowItemIcon, { tintColor: colors.text }]} />
+              <Image source={compassIcon} style={[styles.rowItemIcon, { tintColor: colors.special }]} />
               <Text style={[styles.rowLabel, { color: colors.text }]}>App導覽</Text>
             </View>
             <Text style={[styles.arrow, { color: themeMode === "dark" ? "#666666" : "#CCCCCC" }]}>❯</Text>
@@ -406,7 +558,7 @@ const renderItem = ({ item }) => {
 
       {/* 2. 數據看板 */}
       <View style={styles.statsContainer}>
-        <View style={[styles.statBox, styles.statDivider]}>
+        <View style={styles.statBox}>
           {/* 顯示從 Firebase 計算出來的總數量 */}
           <Text style={styles.statNumber}>{userStats.reports}</Text>
           <Text style={styles.statLabel}>總回報數</Text>
@@ -420,10 +572,19 @@ const renderItem = ({ item }) => {
 
       {/* 3. 歷史紀錄列表 */}
       <FlatList
+        alwaysBounceVertical
         data={historyData}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => `${item.listType}-${item.id}`}
         contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.special}
+            colors={[colors.special]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       />
     </View>
@@ -495,38 +656,72 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 24,
     borderRadius: 12,
-    paddingVertical: 16,
+    height: 84,
     alignItems: "center",
+    overflow: "hidden",
   },
   statBox: {
-    flex: 1,
+    width: "50%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
-  statDivider: {
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.3)",
+  statCenterDivider: {
+    position: "absolute",
+    left: "50%",
+    marginLeft: -0.5,
+    width: 1,
+    height: 44,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    zIndex: 1,
   },
   statNumber: {
     fontSize: fontSizes.heading,
+    lineHeight: 30,
     fontWeight: "bold",
     color: "#FFFFFF",
+    includeFontPadding: false,
+    textAlign: "center",
   },
   statLabel: {
     fontSize: fontSizes.labelSmall,
+    lineHeight: 18,
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 4,
+    includeFontPadding: false,
+    textAlign: "center",
   },
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 130, 
   },
+  historySwipeContainer: {
+    position: "relative",
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: "hidden",
+    elevation: 2,
+  },
+  historyDeleteButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: historyDeleteActionWidth,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  historyDeleteText: {
+    color: colors.white,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
+  },
   card: {
     flexDirection: "row",
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -622,6 +817,13 @@ const styles = StyleSheet.create({
   rowLeft: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+  },
+  themeSwitchContainer: {
+    width: 52,
+    height: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
   rowIcon: {
     fontSize: fontSizes.titleSmall,
@@ -702,7 +904,9 @@ const styles = StyleSheet.create({
   },
   // 🎯 3. 補上標籤與時鐘的視覺樣式
   tagWrapper: {
-    flexDirection: "row", // 讓長方形只包裹文字寬度，不延伸到全滿
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
     marginTop: 4,
     marginBottom: 6,
   },

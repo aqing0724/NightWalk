@@ -71,7 +71,13 @@ function AppFrame() {
       
       {/* 🎯 5. 這裡最關鍵！最外層 View 的背景色必須動態跟隨 colors.background */}
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <Stack screenOptions={{ headerShown: false, animation: "none" }} />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "none",
+            contentStyle: { backgroundColor: colors.background },
+          }}
+        />
       </View>
 
       {showNavigation ? (

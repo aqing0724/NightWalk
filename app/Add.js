@@ -81,7 +81,7 @@ function getDangerTypeLabel(typeId, typeOptions) {
   return matchingType?.label || typeId.replace(/^custom:/, "");
 }
 function createCustomTypeDocId(typeLabel) { return `custom-${encodeURIComponent(typeLabel)}`; }
-function normalizeCustomTypeText(typeText) { return typeText.trim().replace(/^#+/, "").trim(); }
+function normalizeCustomTypeText(typeText) { return typeText.trim().replace(/^(?:#|＃)+/, "").trim(); }
 function formatCustomTypeText(typeLabel) { return `#${typeLabel}`; }
 
 async function uploadImageAsync(imageUri) {
@@ -160,10 +160,19 @@ export default function AddPage() {
   useEffect(() => {
     if (submissionStage === "submitting") {
       pulseAnimation.setValue(0);
-      const animation = Animated.loop(Animated.timing(pulseAnimation, { toValue: 1, duration: 1100, easing: Easing.out(Easing.ease), useNativeDriver: true }));
+      const animation = Animated.loop(
+        Animated.timing(pulseAnimation, {
+          toValue: 1,
+          duration: 1100,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        })
+      );
+
       animation.start();
       return () => animation.stop();
     }
+
     if (submissionStage === "success") {
       successScale.setValue(0.65);
       successOpacity.setValue(0);
@@ -263,14 +272,14 @@ export default function AddPage() {
     if (!matchingPresetType) {
       await setDoc(doc(db, "dangerTypes", createCustomTypeDocId(customTypeLabel)), { id: nextTypeId, label: customTypeLabel, visibility: "public", createdBy: auth.currentUser?.uid || null, createdAt: serverTimestamp() }, { merge: true });
     }
-    selectDangerType(nextTypeId); setCustomTypeText("");
+    selectDangerType(nextTypeId); setCustomTypeText("#");
   }
-  async function handleSelectExistingCustomType(customType) { selectDangerType(customType.id); setCustomTypeText(""); }
+  async function handleSelectExistingCustomType(customType) { selectDangerType(customType.id); setCustomTypeText("#"); }
   function handleCreateCustomType(typeLabel) {
     const customTypeLabel = normalizeCustomTypeText(typeLabel);
     if (!customTypeLabel) return;
     const exactExistingType = dangerTypeSuggestions.find((type) => type.label.toLocaleLowerCase() === customTypeLabel.toLocaleLowerCase());
-    if (exactExistingType) { selectDangerType(exactExistingType.id); setCustomTypeText(""); return; }
+    if (exactExistingType) { selectDangerType(exactExistingType.id); setCustomTypeText("#"); return; }
     Alert.alert("確認新增標籤", `確定要新增「#${customTypeLabel}」嗎？`, [
       { text: "取消", style: "cancel" },
       { text: "新增", onPress: async () => { try { await addCustomType(customTypeLabel); } catch { Alert.alert("新增失敗"); } } }
@@ -334,9 +343,7 @@ export default function AddPage() {
   const debouncedCustomTypeQuery = normalizeCustomTypeText(debouncedCustomTypeText);
   const availableDangerTypeSuggestions = dangerTypeSuggestions.filter((customType) => !selectedTypes.includes(customType.id));
   const matchingCustomTypeSuggestions = debouncedCustomTypeQuery ? availableDangerTypeSuggestions.filter((customType) => customType.label.toLocaleLowerCase().includes(debouncedCustomTypeQuery.toLocaleLowerCase())).slice(0, maxDangerTypeSuggestionCount) : availableDangerTypeSuggestions.slice(0, maxDangerTypeSuggestionCount);
-  const hasExactCustomTypeMatch = dangerTypeSuggestions.some((customType) => customType.label.toLocaleLowerCase() === debouncedCustomTypeQuery.toLocaleLowerCase());
-  const shouldShowCustomTypeSuggestions = Boolean(debouncedCustomTypeQuery) && customTypeQuery === debouncedCustomTypeQuery;
-  const shouldShowCreateCustomType = shouldShowCustomTypeSuggestions && !hasExactCustomTypeMatch;
+  const shouldShowCustomTypeSuggestions = customTypeQuery === debouncedCustomTypeQuery;
   const selectedDangerTypeOptions = selectedTypes.map((typeId) => ({ id: typeId, label: getDangerTypeLabel(typeId, dangerTypeSuggestions) }));
 
   return (
@@ -350,8 +357,17 @@ export default function AddPage() {
 
       <ScrollView
         ref={scrollViewRef}
+        alwaysBounceVertical
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18) + 62, paddingBottom: Math.max(insets.bottom, 26) + 128 }]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.special}
+            colors={[colors.special]}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mapCard}>
@@ -406,16 +422,51 @@ export default function AddPage() {
           </View>
         ) : null}
         
-        <View style={[styles.customTypeBox, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}>
+        <View
+          style={[styles.customTypeBox, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}
+          onLayout={(event) => {
+            customTypeInputYRef.current = event.nativeEvent.layout.y;
+          }}
+        >
           <TextInput
+            accessibilityLabel="新增危險標籤"
+            autoCorrect={false}
+            blurOnSubmit={false}
+            enablesReturnKeyAutomatically
             placeholder="ex. 偷拍"
-            placeholderTextColor="#666666"
+            placeholderTextColor={colors.special}
+            returnKeyType="done"
             style={[styles.customTypeInput, { color: colors.text }]}
             value={customTypeText}
             onChangeText={setCustomTypeText}
             onFocus={handleCustomTypeInputFocus}
+            onSubmitEditing={handleAddCustomType}
           />
         </View>
+        {shouldShowCustomTypeSuggestions ? (
+          <View style={styles.customTypeSuggestions}>
+            {matchingCustomTypeSuggestions.map((customType) => (
+              <Pressable
+                key={customType.id}
+                accessibilityLabel={`選擇 ${formatCustomTypeText(customType.label)}`}
+                accessibilityRole="button"
+                onPress={() => handleSelectExistingCustomType(customType)}
+                style={[
+                  styles.customTypeSuggestion,
+                  {
+                    backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white,
+                    borderColor: colors.divider,
+                  },
+                ]}
+              >
+                <Text style={[styles.customTypeSuggestionHash, { color: colors.text }]}>#</Text>
+                <Text style={[styles.customTypeSuggestionText, { color: colors.text }]}>
+                  {customType.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>3.情況說明</Text>
         <TextInput
@@ -430,10 +481,46 @@ export default function AddPage() {
         />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>4.上傳照片 (選填)</Text>
-        <Pressable onPress={handleAddPhoto} style={[styles.photoButton, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#F0F0F0" }]}>
+        <Pressable
+          disabled={isPickingImage}
+          onPress={handleAddPhoto}
+          style={[
+            styles.photoButton,
+            { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#F0F0F0" },
+            isPickingImage ? styles.photoButtonDisabled : null,
+          ]}
+        >
           <Image source={imageIcon} style={[styles.photoIcon, { tintColor: colors.text }]} />
-          <Text style={[styles.photoButtonText, { color: colors.text }]}>新增圖片</Text>
+          <Text style={[styles.photoButtonText, { color: colors.text }]}>
+            {isPickingImage ? "讀取中..." : "新增圖片"}
+          </Text>
         </Pressable>
+        {selectedImages.length ? (
+          <>
+            <ScrollView
+              contentContainerStyle={styles.photoPreviewRow}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+            >
+              {selectedImages.map((image, index) => (
+                <View key={`${image.uri}-${index}`} style={styles.photoPreview}>
+                  <Image source={{ uri: image.uri }} style={styles.photoImage} />
+                  <Pressable
+                    accessibilityLabel={`移除第 ${index + 1} 張照片`}
+                    accessibilityRole="button"
+                    onPress={() => removeSelectedImage(index)}
+                    style={styles.removePhotoButton}
+                  >
+                    <Text style={styles.removePhotoText}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+            <Text style={[styles.photoCount, { color: colors.special }]}>
+              已選擇 {selectedImages.length}/{maxPhotoCount} 張照片
+            </Text>
+          </>
+        ) : null}
         
         {/* 送出按鈕 */}
         <Pressable onPress={handleSubmitReport} style={styles.submitButton}>
@@ -441,12 +528,70 @@ export default function AddPage() {
         </Pressable>
       </ScrollView>
 
-      {/* 物理全域覆蓋的加載 Modal 機制維持原樣 */}
-      <Modal animationType="fade" transparent visible={submissionStage !== "idle"}>
-        <View style={styles.submissionOverlayCentered}>
-          <View style={styles.submissionCard}>
-            <Text style={styles.submissionTitle}>{submissionStage === "submitting" ? "正在送出回報" : "回報成功送出"}</Text>
-          </View>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => {}}
+        statusBarTranslucent
+        transparent
+        visible={submissionStage !== "idle"}
+      >
+        <View
+          accessibilityLiveRegion="polite"
+          accessibilityViewIsModal
+          style={styles.submissionOverlay}
+        >
+          {submissionStage === "submitting" ? (
+            <View style={styles.submissionCard}>
+              <View style={styles.loadingAnimation}>
+                <Animated.View
+                  style={[
+                    styles.loadingPulse,
+                    {
+                      opacity: pulseAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.55, 0],
+                      }),
+                      transform: [
+                        {
+                          scale: pulseAnimation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.72, 1.45],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <ActivityIndicator color="#FFFFFF" size="large" />
+              </View>
+              <Text style={styles.submissionTitle}>正在送出回報</Text>
+              <Text style={styles.submissionDescription}>請稍候，我們正在上傳資料...</Text>
+              <Pressable
+                accessibilityLabel="取消送出回報"
+                accessibilityRole="button"
+                onPress={handleCancelSubmit}
+                style={styles.cancelSubmitButton}
+              >
+                <Text style={styles.cancelSubmitButtonText}>取消送出</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.submissionCard}>
+              <Animated.View
+                style={[
+                  styles.successCircle,
+                  {
+                    opacity: successOpacity,
+                    transform: [{ scale: successScale }],
+                  },
+                ]}
+              >
+                <Text style={styles.successCheck}>✓</Text>
+              </Animated.View>
+              <Text style={styles.submissionTitle}>回報成功送出</Text>
+              <Text style={styles.submissionDescription}>謝謝你協助守護社區安全</Text>
+            </View>
+          )}
         </View>
       </Modal>
     </KeyboardAvoidingView>
@@ -478,12 +623,30 @@ const styles = StyleSheet.create({
   optionLabel: { marginLeft: 5, fontSize: fontSizes.bodySmall, fontWeight: "900" },
   customTypeBox: { height: 46, marginTop: 10, borderRadius: 10, flexDirection: "row", alignItems: "center", overflow: "hidden" },
   customTypeInput: { flex: 1, height: "100%", paddingHorizontal: 13, fontSize: fontSizes.bodySmall, fontWeight: "800" },
+  customTypeSuggestions: { marginTop: 8, flexDirection: "row", flexWrap: "wrap" },
+  customTypeSuggestion: { minHeight: 34, marginRight: 8, marginBottom: 8, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, flexDirection: "row", alignItems: "center" },
+  customTypeSuggestionHash: { fontSize: fontSizes.bodySmall, fontWeight: "900", lineHeight: 20 },
+  customTypeSuggestionText: { marginLeft: 5, fontSize: fontSizes.bodySmall, fontWeight: "800", lineHeight: 20 },
   photoButton: { width: 110, height: 80, marginTop: 11, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  photoButtonDisabled: { opacity: 0.7 },
   photoIcon: { width: 35, height: 35, marginBottom: 4, resizeMode: "contain" },
   photoButtonText: { fontSize: fontSizes.titleSmall, fontWeight: "900" },
+  photoPreviewRow: { paddingTop: 12, paddingRight: 8 },
+  photoPreview: { width: 88, height: 88, marginRight: 10 },
+  photoImage: { width: "100%", height: "100%", borderRadius: 8 },
+  removePhotoButton: { position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: 12, backgroundColor: "#000000", alignItems: "center", justifyContent: "center" },
+  removePhotoText: { color: "#FFFFFF", fontSize: fontSizes.title, fontWeight: "900", lineHeight: 22 },
+  photoCount: { marginTop: 7, fontSize: fontSizes.labelSmall, fontWeight: "800" },
   submitButton: { height: 43, marginTop: 40, borderRadius: 8, backgroundColor: "#A6BAAE", alignItems: "center", justifyContent: "center" },
   submitButtonText: { color: "#FFFFFF", fontSize: fontSizes.title, fontWeight: "900" },
-  submissionOverlayCentered: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center" },
-  submissionCard: { width: 280, padding: 20, borderRadius: 12, backgroundColor: "#647D70", alignItems: "center" },
-  submissionTitle: { color: "#FFFFFF", fontSize: fontSizes.title, fontWeight: "900" },
+  submissionOverlay: { flex: 1, paddingHorizontal: 24, backgroundColor: "rgba(44,48,46,0.66)", alignItems: "center", justifyContent: "center" },
+  submissionCard: { width: "100%", maxWidth: 340, paddingVertical: 26, paddingHorizontal: 20, borderRadius: 18, backgroundColor: "rgba(100,125,112,0.96)", alignItems: "center" },
+  loadingAnimation: { width: 76, height: 76, alignItems: "center", justifyContent: "center" },
+  loadingPulse: { position: "absolute", width: 64, height: 64, borderRadius: 32, backgroundColor: "#FFFFFF" },
+  successCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  successCheck: { color: "#A6BAAE", fontSize: fontSizes.successMark, fontWeight: "900", lineHeight: 52 },
+  submissionTitle: { marginTop: 16, color: "#FFFFFF", fontSize: fontSizes.title, fontWeight: "900", lineHeight: 27, textAlign: "center" },
+  submissionDescription: { marginTop: 7, color: "#FFFFFF", fontSize: fontSizes.bodySmall, fontWeight: "800", lineHeight: 20, textAlign: "center" },
+  cancelSubmitButton: { minWidth: 110, height: 36, marginTop: 16, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
+  cancelSubmitButtonText: { color: "#A6BAAE", fontSize: fontSizes.bodySmall, fontWeight: "900", lineHeight: 20 },
 });

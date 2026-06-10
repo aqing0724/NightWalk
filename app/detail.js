@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -34,9 +33,9 @@ const thumbsUpIcon = require("../assets/ThumbsUp.png");
 const thumbsUpActiveIcon = require("../assets/ThumbUp-on.png");
 const thumbsDownIcon = require("../assets/ThumbsDown.png");
 const thumbsDownActiveIcon = require("../assets/ThumbsDown-on.png");
-const accountIcon = require("../assets/account_circle.png");
 const sendIcon = require("../assets/Send-2.png");
 const chevronIcon = require("../assets/Chevron right.png");
+const trashIcon = require("../assets/Trash.png");
 
 const typeLabels = { theft: "偷竊", harass: "騷擾", track: "跟蹤" };
 const customTypePrefix = "custom:";
@@ -124,6 +123,7 @@ function CommentSuccessBanner({ animationKey, bottomOffset, themeMode }) {
 const commentDeleteActionWidth = 76;
 
 function CommentCard({
+  avatarSource,
   comment,
   isOwnComment,
   onDelete,
@@ -149,8 +149,8 @@ function CommentCard({
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) =>
         isOwnComment &&
-        Math.abs(gestureState.dx) > 6 &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        gestureState.dx < -12 &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5,
       onPanResponderGrant: () => {
         dragStartXRef.current = isDeleteActionOpenRef.current ? -commentDeleteActionWidth : 0;
       },
@@ -168,6 +168,9 @@ function CommentCard({
       onPanResponderTerminate: () => {
         animateTo(isDeleteActionOpenRef.current ? -commentDeleteActionWidth : 0);
       },
+      onPanResponderTerminationRequest: (_, gestureState) =>
+        Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+      onShouldBlockNativeResponder: () => false,
     })
   ).current;
 
@@ -202,7 +205,7 @@ function CommentCard({
       >
         <View style={styles.commentCardContent}>
           <View style={styles.commentHeader}>
-            <Image source={accountIcon} style={[styles.avatarIcon, { tintColor: themeColors.text }]} />
+            <Image source={avatarSource} style={styles.avatarIcon} />
             <Text style={[styles.commentName, { color: themeColors.text }]}>
               {comment.userName || "匿名使用者"}
             </Text>
@@ -223,7 +226,13 @@ export default function DetailPage() {
   const router = useRouter();
   const { reportId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const { themeMode, colors } = useTheme(); // 🎯 2. 從管家提取動態變色變數
+  const {
+    themeMode,
+    colors,
+    currentAvatarId,
+    currentAvatarSource,
+    allAvatars,
+  } = useTheme(); // 🎯 2. 從管家提取動態變色變數
   const scrollViewRef = useRef(null);
   const commentListYRef = useRef(0);
   const pendingCommentIdRef = useRef(null);
@@ -353,6 +362,7 @@ export default function DetailPage() {
         message: nextMessage,
         userId: user.uid,
         userName: user.displayName || "NightWalk 使用者",
+        avatarId: currentAvatarId,
         createdAt: serverTimestamp(),
         locationText: locationText,
       });
@@ -454,8 +464,7 @@ export default function DetailPage() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
-        <View style={styles.screen}>
+      <View style={styles.screen}>
           <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
           {/* 🎯 3. 頂部 Header 黑化連動 */}
@@ -476,8 +485,17 @@ export default function DetailPage() {
             </Pressable>
             <Text style={[styles.headerTitle, { color: colors.text }]}>回報詳細頁</Text>
             {currentUser && report?.userId === currentUser.uid ? (
-              <Pressable accessibilityLabel="Delete report" accessibilityRole="button" hitSlop={12} onPress={handleDeleteReport} style={[styles.deleteHeaderButton, { backgroundColor: themeMode === "dark" ? "#2C2C2C" : "#F0F0F0" }]}>
-                <Text style={styles.deleteHeaderText}>刪</Text>
+              <Pressable
+                accessibilityLabel="刪除回報"
+                accessibilityRole="button"
+                hitSlop={12}
+                onPress={handleDeleteReport}
+                style={styles.deleteHeaderButton}
+              >
+                <Image
+                  source={trashIcon}
+                  style={[styles.deleteHeaderIcon, { tintColor: colors.red }]}
+                />
               </Pressable>
             ) : ( <View style={styles.headerSpacer} /> )}
           </View>
@@ -485,8 +503,10 @@ export default function DetailPage() {
           <ScrollView
             ref={scrollViewRef}
             alwaysBounceVertical
-            contentContainerStyle={[styles.content, { paddingBottom: inputBottomPadding + 106 }]}
+            contentContainerStyle={[styles.content, { paddingBottom: inputBottomPadding + 114 }]}
+            keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={Keyboard.dismiss}
             refreshControl={
               <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={colors.special} colors={[colors.special]} />
             }
@@ -652,6 +672,12 @@ export default function DetailPage() {
                 >
                   {comments.map((comment) => (
                     <CommentCard
+                      avatarSource={
+                        allAvatars[comment.avatarId] ||
+                        (currentUser?.uid === comment.userId
+                          ? currentAvatarSource
+                          : allAvatars.avatar1)
+                      }
                       comment={comment}
                       isOwnComment={Boolean(currentUser && comment.userId === currentUser.uid)}
                       key={comment.id}
@@ -678,7 +704,7 @@ export default function DetailPage() {
           {reportLoadState === "ready" ? (
             <KeyboardStickyView offset={{ closed: 0, opened: inputBottomPadding }} style={[styles.inputBar, { paddingBottom: inputBottomPadding, backgroundColor: colors.background }]}>
               <View style={[styles.inputCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-                <Image source={accountIcon} style={styles.inputAvatarIcon} />
+                <Image source={currentAvatarSource} style={styles.inputAvatarIcon} />
                 <TextInput
                   editable={!isSending}
                   maxLength={500}
@@ -691,7 +717,7 @@ export default function DetailPage() {
                   value={message}
                 />
                 <Pressable disabled={isSending || !message.trim()} onPress={handleSendComment} style={[styles.sendButton, isSending || !message.trim() ? styles.sendButtonDisabled : null]}>
-                  <Image source={sendIcon} style={[styles.sendIcon, { tintColor: message.trim() ? colors.special : "#666666" }]} />
+                  <Image source={sendIcon} style={[styles.sendIcon, { tintColor: colors.special }]} />
                 </Pressable>
               </View>
             </KeyboardStickyView>
@@ -702,13 +728,12 @@ export default function DetailPage() {
               <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
               <CommentSuccessBanner
                 animationKey={commentSuccessAnimationKey}
-                bottomOffset={inputBottomPadding + 78}
+                bottomOffset={inputBottomPadding + 86}
                 themeMode={themeMode}
               />
             </>
           ) : null}
-        </View>
-      </TouchableWithoutFeedback>
+      </View>
     </View>
   );
 }
@@ -773,15 +798,15 @@ const styles = StyleSheet.create({
     width: 34,
   },
   deleteHeaderButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
   },
-  deleteHeaderText: {
-    fontSize: fontSizes.bodySmall,
-    fontWeight: "900",
+  deleteHeaderIcon: {
+    width: 24,
+    height: 24,
+    resizeMode: "contain",
   },
   reportCard: {
     borderRadius: 16,
@@ -967,8 +992,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   avatarIcon: {
-    width: 24,
-    height: 24,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     resizeMode: "contain",
   },
   commentName: {
@@ -999,9 +1025,9 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   inputCard: {
-    height: 50,
-    borderRadius: 25,
-    paddingHorizontal: 14,
+    height: 58,
+    borderRadius: 29,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     shadowColor: "#000",
@@ -1011,7 +1037,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   inputAvatarIcon: {
-    width: 26,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     resizeMode: "contain",
   },
   commentInput: {
@@ -1022,8 +1050,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   sendButton: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     alignItems: "flex-end",
     justifyContent: "center",
   },
@@ -1031,8 +1059,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   sendIcon: {
-    width: 21,
-    height: 21,
+    width: 24,
+    height: 24,
     resizeMode: "contain",
   },
   commentSuccessOverlay: {

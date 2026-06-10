@@ -172,7 +172,7 @@ function worldPointToCoordinate(point, zoom) {
 export default function Page() {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const { themeMode } = useTheme();
+  const { themeMode, colors: themeColors } = useTheme();
   const mapRef = useRef(null);
   const shouldShowLaunchScreen = useRef(!hasShownLaunchScreen).current;
   const launchProgress = useRef(
@@ -184,6 +184,7 @@ export default function Page() {
     shouldShowLaunchScreen
   );
   const [initialMapCenter, setInitialMapCenter] = useState(cachedUserCenter);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [userCenter, setUserCenter] = useState(cachedUserCenter);
   const [reports, setReports] = useState([]);
   const [selectedReportId, setSelectedReportId] = useState(null);
@@ -436,12 +437,20 @@ export default function Page() {
   }
 
   return (
-    <View style={styles.container}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: themeColors.background },
+      ]}
+    >
       {initialMapCenter ? (
         <MapView
           ref={mapRef}
           provider={PROVIDER_GOOGLE}
-          style={styles.map}
+          style={[
+            styles.map,
+            { backgroundColor: themeColors.background },
+          ]}
           userInterfaceStyle={themeMode} 
           customMapStyle={themeMode === "dark" ? googleMapDarkStyle : []} 
           initialCamera={{
@@ -456,6 +465,7 @@ export default function Page() {
           toolbarEnabled={false}
           rotateEnabled
           pitchEnabled
+          onMapLoaded={() => setIsMapLoaded(true)}
           onUserLocationChange={handleUserLocationChange}
         >
           {reports.map((report) => (
@@ -489,6 +499,16 @@ export default function Page() {
         </MapView>
       ) : null}
 
+      {!isMapLoaded ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.mapLoadingCover,
+            { backgroundColor: themeColors.background },
+          ]}
+        />
+      ) : null}
+
       <Modal
         animationType="none"
         navigationBarTranslucent
@@ -498,19 +518,40 @@ export default function Page() {
         <View
           accessibilityLabel="NightWalk, Safer Routes, Safer Nights."
           accessibilityLiveRegion="polite"
-          style={styles.locatingOverlay}
+          style={[
+            styles.locatingOverlay,
+            { backgroundColor: themeColors.background },
+          ]}
         >
           <Image source={appIcon} style={styles.locatingAppIcon} />
-          <Text style={styles.locatingTagline}>Safer Routes, Safer Nights.</Text>
+          <Text
+            style={[
+              styles.locatingTagline,
+              {
+                color:
+                  themeMode === "dark"
+                    ? themeColors.white
+                    : themeColors.black,
+              },
+            ]}
+          >
+            Safer Routes, Safer Nights.
+          </Text>
           <View
             accessibilityLabel="定位進度"
             accessibilityRole="progressbar"
-            style={styles.locatingProgressTrack}
+            style={[
+              styles.locatingProgressTrack,
+              { backgroundColor: themeColors.specialSoft },
+            ]}
           >
             <Animated.View
               style={[
                 styles.locatingProgressFill,
-                { width: launchProgressWidth },
+                {
+                  width: launchProgressWidth,
+                  backgroundColor: themeColors.special,
+                },
               ]}
             />
           </View>
@@ -570,6 +611,10 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  mapLoadingCover: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
   },
   locatingOverlay: {
     ...StyleSheet.absoluteFillObject,
