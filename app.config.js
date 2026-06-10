@@ -21,7 +21,7 @@ export default {
         },
       ],
     ],
-    name: "nightwalk",
+    name: "NightWalk",
     slug: "nightwalk",
     "jsEngine": "jsc",
     "version": "1.0.0",
