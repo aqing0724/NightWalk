@@ -43,6 +43,13 @@ const authModes = {
 };
 
 function getAuthErrorMessage(error) {
+  if (
+    error?.message?.includes("Failed to create storage directory") ||
+    error?.message?.includes("NSCocoaErrorDomain Code=512")
+  ) {
+    return "模擬器的本機儲存空間發生錯誤，請重新安裝 Expo Go 後再登入。";
+  }
+
   switch (error.code) {
     case "auth/email-already-in-use":
       return "這個電子郵件已經註冊過，請直接登入。";

@@ -23,7 +23,6 @@ export default {
     ],
     name: "nightwalk",
     slug: "nightwalk",
-    "slug": "NightWalk",
     "jsEngine": "jsc",
     "version": "1.0.0",
     androidNavigationBar: {

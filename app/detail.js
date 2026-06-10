@@ -4,6 +4,7 @@ import {
   Animated,
   Image,
   Keyboard,
+  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -68,40 +69,151 @@ function sortComments(comments, currentUserId) {
   });
 }
 
-function CommentSuccessBanner({ animationKey, bottomOffset }) {
+function CommentSuccessBanner({ animationKey, bottomOffset, themeMode }) {
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(28)).current;
-  const iconTranslateX = useRef(new Animated.Value(-8)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!animationKey) return undefined;
     opacity.setValue(0);
-    translateY.setValue(28);
-    iconTranslateX.setValue(-8);
+    scale.setValue(0.9);
+    checkScale.setValue(0);
 
     const animation = Animated.parallel([
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 160, useNativeDriver: true }),
-        Animated.delay(900),
-        Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+        Animated.delay(800),
+        Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }),
       ]),
-      Animated.spring(translateY, { toValue: 0, friction: 7, tension: 110, useNativeDriver: true }),
+      Animated.spring(scale, { toValue: 1, friction: 6, tension: 110, useNativeDriver: true }),
       Animated.sequence([
-        Animated.delay(80),
-        Animated.spring(iconTranslateX, { toValue: 0, friction: 5, tension: 130, useNativeDriver: true }),
+        Animated.delay(90),
+        Animated.spring(checkScale, { toValue: 1, friction: 5, tension: 150, useNativeDriver: true }),
       ]),
     ]);
     animation.start();
     return () => animation.stop();
-  }, [animationKey, iconTranslateX, opacity, translateY]);
+  }, [animationKey, checkScale, opacity, scale]);
 
   return (
     <View pointerEvents="none" style={[styles.commentSuccessOverlay, { bottom: bottomOffset }]}>
-      <Animated.View style={[styles.commentSuccessBanner, { opacity, transform: [{ translateY }] }]}>
-        <Animated.View style={[styles.commentSuccessIconBubble, { transform: [{ translateX: iconTranslateX }] }]}>
-          <Image source={sendIcon} style={styles.commentSuccessIcon} />
+      <Animated.View
+        accessibilityLiveRegion="polite"
+        style={[
+          styles.commentSuccessBanner,
+          {
+            backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.white,
+            borderColor: themeMode === "dark" ? "#444444" : colors.divider,
+            opacity,
+            transform: [{ scale }],
+          },
+        ]}
+      >
+        <Animated.View style={[styles.commentSuccessIconBubble, { transform: [{ scale: checkScale }] }]}>
+          <Text style={styles.commentSuccessCheckMark}>✓</Text>
         </Animated.View>
-        <Text style={styles.commentSuccessText}>評論已送出</Text>
+        <Text style={[styles.commentSuccessText, { color: themeMode === "dark" ? colors.white : colors.black }]}>
+          評論已送出
+        </Text>
+      </Animated.View>
+    </View>
+  );
+}
+
+const commentDeleteActionWidth = 76;
+
+function CommentCard({
+  comment,
+  isOwnComment,
+  onDelete,
+  onLayout,
+  themeMode,
+  themeColors,
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const isDeleteActionOpenRef = useRef(false);
+  const dragStartXRef = useRef(0);
+
+  const animateTo = useCallback((toValue) => {
+    isDeleteActionOpenRef.current = toValue !== 0;
+    Animated.spring(translateX, {
+      toValue,
+      friction: 8,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [translateX]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        isOwnComment &&
+        Math.abs(gestureState.dx) > 6 &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderGrant: () => {
+        dragStartXRef.current = isDeleteActionOpenRef.current ? -commentDeleteActionWidth : 0;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextTranslateX = Math.max(
+          -commentDeleteActionWidth,
+          Math.min(0, dragStartXRef.current + gestureState.dx)
+        );
+        translateX.setValue(nextTranslateX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const nextTranslateX = dragStartXRef.current + gestureState.dx;
+        animateTo(nextTranslateX < -commentDeleteActionWidth / 2 ? -commentDeleteActionWidth : 0);
+      },
+      onPanResponderTerminate: () => {
+        animateTo(isDeleteActionOpenRef.current ? -commentDeleteActionWidth : 0);
+      },
+    })
+  ).current;
+
+  return (
+    <View
+      onLayout={onLayout}
+      style={[
+        styles.commentSwipeContainer,
+        { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" },
+      ]}
+    >
+      {isOwnComment ? (
+        <Pressable
+          accessibilityLabel="Delete comment"
+          accessibilityRole="button"
+          onPress={() => onDelete(comment)}
+          style={styles.commentDeleteButton}
+        >
+          <Text style={styles.commentDeleteText}>刪除</Text>
+        </Pressable>
+      ) : null}
+
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.commentCard,
+          {
+            backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF",
+            transform: [{ translateX }],
+          },
+        ]}
+      >
+        <View style={styles.commentCardContent}>
+          <View style={styles.commentHeader}>
+            <Image source={accountIcon} style={[styles.avatarIcon, { tintColor: themeColors.text }]} />
+            <Text style={[styles.commentName, { color: themeColors.text }]}>
+              {comment.userName || "匿名使用者"}
+            </Text>
+            {formatCommentDate(comment.createdAt) ? (
+              <Text style={styles.commentDate}>{formatCommentDate(comment.createdAt)}</Text>
+            ) : null}
+          </View>
+          <Text style={[styles.commentMessage, { color: themeMode === "dark" ? "#DDDDDD" : "#333333" }]}>
+            {comment.message}
+          </Text>
+        </View>
       </Animated.View>
     </View>
   );
@@ -116,6 +228,7 @@ export default function DetailPage() {
   const commentListYRef = useRef(0);
   const pendingCommentIdRef = useRef(null);
   const [report, setReport] = useState(null);
+  const [reportLoadState, setReportLoadState] = useState("loading");
   const [comments, setComments] = useState([]);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -159,15 +272,21 @@ export default function DetailPage() {
   useEffect(() => {
     if (!currentReportId) {
       setReport(null);
+      setReportLoadState("missing");
       return undefined;
     }
+    setReport(null);
+    setReportLoadState("loading");
     const unsubscribe = onSnapshot(doc(db, "reports", currentReportId), (snapshot) => {
       if (!snapshot.exists()) {
         setReport(null);
+        setReportLoadState("missing");
         return;
       }
       setReport({ id: snapshot.id, ...snapshot.data() });
+      setReportLoadState("ready");
     }, () => {
+      setReportLoadState("error");
       Alert.alert("讀取失敗", "目前無法讀取回報內容，請稍後再試。");
     });
     return unsubscribe;
@@ -200,6 +319,7 @@ export default function DetailPage() {
       }
       const [reportSnapshot, commentsSnapshot, voteSnapshot] = await Promise.all(requests);
       setReport(reportSnapshot.exists() ? { id: reportSnapshot.id, ...reportSnapshot.data() } : null);
+      setReportLoadState(reportSnapshot.exists() ? "ready" : "missing");
       const nextComments = commentsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
       setComments(sortComments(nextComments, currentUser?.uid));
       if (currentUser && voteSnapshot) {
@@ -265,6 +385,33 @@ export default function DetailPage() {
     } finally { setIsVoting(false); }
   }
 
+  function handleDeleteComment(comment) {
+    const user = auth.currentUser;
+    if (!user || comment.userId !== user.uid || !currentReportId) {
+      return;
+    }
+
+    Alert.alert(
+      "刪除留言",
+      "確定要刪除這則留言嗎？刪除後將無法復原。",
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "確定刪除",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteDoc(doc(db, "reports", currentReportId, "comments", comment.id));
+            } catch (error) {
+              console.error("刪除留言失敗:", error);
+              Alert.alert("刪除失敗", "目前無法刪除留言，請稍後再試。");
+            }
+          },
+        },
+      ]
+    );
+  }
+
   function showLoginRequiredAlert(message) {
     Alert.alert("請先登入", message, [
       { text: "取消", style: "cancel" },
@@ -276,7 +423,7 @@ export default function DetailPage() {
     if (!currentReportId) return;
     Alert.alert(
       "刪除回報", 
-      "您確定要刪除這筆危險地點回報嗎？此操作將無法復原，且底下的所有留言與評論會被永久抹除。", 
+      "您確定要刪除這筆危險地點回報嗎？此操作將無法復原。",
       [
         { text: "取消", style: "cancel" },
         { 
@@ -284,18 +431,12 @@ export default function DetailPage() {
           style: "destructive", 
           onPress: async () => {
             try {
-              const commentsRef = collection(db, "reports", currentReportId, "comments");
-              const commentsSnapshot = await getDocs(commentsRef);
-              const deleteCommentsPromises = commentsSnapshot.docs.map((commentDoc) => 
-                deleteDoc(doc(db, "reports", currentReportId, "comments", commentDoc.id))
-              );
-              await Promise.all(deleteCommentsPromises);
               await deleteDoc(doc(db, "reports", currentReportId));
-              Alert.alert("刪除成功", "該筆回報及其所有相關評論已成功移除。");
+              Alert.alert("刪除成功", "該筆回報已成功移除。");
               router.back(); 
             } catch (error) {
-              console.error("連帶刪除失敗:", error);
-              Alert.alert("操作失敗", "目前無法完整刪除該資料，請稍後再試。");
+              console.error("刪除回報失敗:", error);
+              Alert.alert("操作失敗", "目前無法刪除該資料，請稍後再試。");
             }
           } 
         }
@@ -318,7 +459,16 @@ export default function DetailPage() {
           <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
           {/* 🎯 3. 頂部 Header 黑化連動 */}
-          <View style={[styles.header, { paddingTop: Math.max(insets.top, 18), backgroundColor: colors.background }]}>
+          <View
+            style={[
+              styles.header,
+              {
+                height: Math.max(insets.top, 18) + 54,
+                paddingTop: Math.max(insets.top, 18),
+                backgroundColor: colors.background,
+              },
+            ]}
+          >
             
             <Pressable accessibilityLabel="Go back" accessibilityRole="button" onPress={() => router.back()} hitSlop={12} style={styles.backButton}>
               <Image source={chevronIcon} style={[styles.backIcon, { tintColor: colors.text }]} />
@@ -343,109 +493,220 @@ export default function DetailPage() {
             showsVerticalScrollIndicator={false}
             style={styles.scrollView}
           >
-            {/* 🎯 4. 主要危險卡片黑化連動 */}
-            <View style={[styles.reportCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-              <View style={styles.reportHeader}>
-                <Image source={warningIcon} style={styles.warningIcon} />
-                <View style={styles.reportTitleGroup}>
-                  <Text style={[styles.reportTitle, { color: colors.text }]}>危險回報</Text>
-                  <View style={styles.locationRow}>
-                    <Image source={mapPinIcon} style={[styles.locationIcon, { tintColor: themeMode === "dark" ? "#AAAAAA" : "#000000" }]} />
-                    <Text style={[styles.locationText, { color: colors.text }]}>{locationText}</Text>
-                  </View>
-                </View>
+            {reportLoadState === "missing" ? (
+              <View style={styles.deletedReportState}>
+                <Text style={[styles.deletedReportTitle, { color: colors.text }]}>該回報已刪除</Text>
+                <Text style={[styles.deletedReportMessage, { color: themeMode === "dark" ? "#AAAAAA" : "#777777" }]}>
+                  這筆留言所屬的危險回報已不存在。
+                </Text>
               </View>
-
-              <View style={styles.tagRow}>
-                {typeList.length ? (
-                  typeList.map((type) => (
-                    <View key={type} style={[styles.tag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}>
-                      <Text style={[styles.tagHash, { color: colors.text }]}>#</Text>
-                      <Text style={[styles.tagText, { color: colors.text }]}>{formatTypeLabel(type)}</Text>
+            ) : reportLoadState === "ready" ? (
+              <>
+                {/* 🎯 4. 主要危險卡片黑化連動 */}
+                <View style={[styles.reportCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
+                  <View style={styles.reportHeader}>
+                    <Image source={warningIcon} style={styles.warningIcon} />
+                    <View style={styles.reportTitleGroup}>
+                      <Text style={[styles.reportTitle, { color: colors.text }]}>危險回報</Text>
+                      <View style={styles.locationRow}>
+                        <Image
+                          source={mapPinIcon}
+                          style={[styles.locationIcon, { tintColor: themeMode === "dark" ? "#AAAAAA" : "#000000" }]}
+                        />
+                        <Text style={[styles.locationText, { color: colors.text }]}>{locationText}</Text>
+                      </View>
                     </View>
-                  ))
-                ) : (
-                  <View style={[styles.tag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}>
-                    <Text style={[styles.tagHash, { color: colors.text }]}>#</Text>
-                    <Text style={[styles.tagText, { color: colors.text }]}>未分類</Text>
                   </View>
-                )}
-              </View>
-              <Text style={[styles.description, { color: themeMode === "dark" ? "#DDDDDD" : "#1A1A1A" }]}>
-                {report?.description || "尚未提供情況說明。"}
-              </Text>
-            </View>
 
-            {imageUrls.length ? (
-              <ScrollView contentContainerStyle={styles.reportImageRow} horizontal showsHorizontalScrollIndicator={false}>
-                {imageUrls.map((imageUrl, index) => (
-                  <View key={`${imageUrl}-${index}`} style={[styles.reportImageCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-                    <Image accessibilityLabel={`Report photo ${index + 1}`} resizeMode="cover" source={{ uri: imageUrl }} style={styles.reportImage} />
+                  <View style={styles.tagRow}>
+                    {typeList.length ? (
+                      typeList.map((type) => (
+                        <View
+                          key={type}
+                          style={[styles.tag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}
+                        >
+                          <Text style={[styles.tagHash, { color: colors.text }]}>#</Text>
+                          <Text style={[styles.tagText, { color: colors.text }]}>{formatTypeLabel(type)}</Text>
+                        </View>
+                      ))
+                    ) : (
+                      <View style={[styles.tag, { backgroundColor: themeMode === "dark" ? "#333333" : "#EDEDED" }]}>
+                        <Text style={[styles.tagHash, { color: colors.text }]}>#</Text>
+                        <Text style={[styles.tagText, { color: colors.text }]}>未分類</Text>
+                      </View>
+                    )}
                   </View>
-                ))}
-              </ScrollView>
-            ) : null}
-
-            {/* 🎯 5. 投票社群驗證卡片黑化連動 */}
-            <View style={[styles.voteCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-              <View style={styles.voteTitleRow}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>社群驗證</Text>
-                <Text style={styles.voteHint}>(已有 {voteCount} 人投票)</Text>
-              </View>
-              <View style={styles.voteRow}>
-                <Pressable disabled={isVoting} onPress={() => handleVote("credible")} style={[styles.voteButton, selectedVote === "credible" ? styles.voteButtonActive : null, { backgroundColor: themeMode === "dark" ? "#2A2A2A" : "#F0F0F0" }]}>
-                  <Image source={selectedVote === "credible" ? thumbsUpActiveIcon : thumbsUpIcon} style={[styles.voteIcon, { tintColor: selectedVote === "credible" ? undefined : colors.text }]} />
-                  <Text style={[styles.voteText, selectedVote === "credible" ? styles.voteTextActive : null, { color: colors.text }]}>可信({credibleCount})</Text>
-                </Pressable>
-                <Pressable disabled={isVoting} onPress={() => handleVote("notCredible")} style={[styles.voteButton, selectedVote === "notCredible" ? styles.voteButtonActive : null, { backgroundColor: themeMode === "dark" ? "#2A2A2A" : "#F0F0F0" }]}>
-                  <Image source={selectedVote === "notCredible" ? thumbsDownActiveIcon : thumbsDownIcon} style={[styles.voteIcon, { tintColor: selectedVote === "notCredible" ? undefined : colors.text }]} />
-                  <Text style={[styles.voteText, selectedVote === "notCredible" ? styles.voteTextActive : null, { color: colors.text }]}>不可信({notCredibleCount})</Text>
-                </Pressable>
-              </View>
-            </View>
-
-            <Text style={[styles.commentTitle, { color: colors.text }]}>留言與評論</Text>
-
-            {/* 🎯 6. 評論列表卡片黑化連動 */}
-            <View onLayout={(event) => { commentListYRef.current = event.nativeEvent.layout.y; }} style={styles.commentList}>
-              {comments.map((comment) => (
-                <View key={comment.id} style={[styles.commentCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-                  <View style={styles.commentHeader}>
-                    <Image source={accountIcon} style={[styles.avatarIcon, { tintColor: colors.text }]} />
-                    <Text style={[styles.commentName, { color: colors.text }]}>{comment.userName || "匿名使用者"}</Text>
-                    {formatCommentDate(comment.createdAt) ? (
-                      <Text style={styles.commentDate}>{formatCommentDate(comment.createdAt)}</Text>
-                    ) : null}
-                  </View>
-                  <Text style={[styles.commentMessage, { color: themeMode === "dark" ? "#DDDDDD" : "#333333" }]}>{comment.message}</Text>
+                  <Text style={[styles.description, { color: themeMode === "dark" ? "#DDDDDD" : "#1A1A1A" }]}>
+                    {report?.description || "尚未提供情況說明。"}
+                  </Text>
                 </View>
-              ))}
-            </View>
+
+                {imageUrls.length ? (
+                  <ScrollView
+                    contentContainerStyle={styles.reportImageRow}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                  >
+                    {imageUrls.map((imageUrl, index) => (
+                      <View
+                        key={`${imageUrl}-${index}`}
+                        style={[styles.reportImageCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}
+                      >
+                        <Image
+                          accessibilityLabel={`Report photo ${index + 1}`}
+                          resizeMode="cover"
+                          source={{ uri: imageUrl }}
+                          style={styles.reportImage}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : null}
+
+                {/* 🎯 5. 投票社群驗證卡片黑化連動 */}
+                <View style={[styles.voteCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
+                  <View style={styles.voteTitleRow}>
+                    <Text style={[styles.sectionTitle, { color: colors.text }]}>社群驗證</Text>
+                    <Text style={styles.voteHint}>(已有 {voteCount} 人投票)</Text>
+                  </View>
+                  <View style={styles.voteRow}>
+                    <Pressable
+                      accessibilityLabel="Trust this danger report"
+                      accessibilityRole="button"
+                      disabled={isVoting}
+                      onPress={() => handleVote("credible")}
+                      style={[
+                        styles.voteButton,
+                        { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted },
+                        selectedVote === "credible" ? styles.voteButtonActive : null,
+                      ]}
+                    >
+                      <Image
+                        source={selectedVote === "credible" ? thumbsUpActiveIcon : thumbsUpIcon}
+                        style={[
+                          styles.voteIcon,
+                          {
+                            tintColor: selectedVote === "credible"
+                              ? undefined
+                              : themeMode === "dark"
+                                ? "#FFFFFF"
+                                : undefined,
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.voteText,
+                          { color: themeMode === "dark" ? "#FFFFFF" : colors.black },
+                          selectedVote === "credible" ? styles.voteTextActive : null,
+                        ]}
+                      >
+                        可信({credibleCount})
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityLabel="Distrust this danger report"
+                      accessibilityRole="button"
+                      disabled={isVoting}
+                      onPress={() => handleVote("notCredible")}
+                      style={[
+                        styles.voteButton,
+                        { backgroundColor: themeMode === "dark" ? "#2C2C2C" : colors.surfaceMuted },
+                        selectedVote === "notCredible" ? styles.voteButtonActive : null,
+                      ]}
+                    >
+                      <Image
+                        source={selectedVote === "notCredible" ? thumbsDownActiveIcon : thumbsDownIcon}
+                        style={[
+                          styles.voteIcon,
+                          {
+                            tintColor: selectedVote === "notCredible"
+                              ? undefined
+                              : themeMode === "dark"
+                                ? "#FFFFFF"
+                                : undefined,
+                          },
+                        ]}
+                      />
+                      <Text
+                        style={[
+                          styles.voteText,
+                          { color: themeMode === "dark" ? "#FFFFFF" : colors.black },
+                          selectedVote === "notCredible" ? styles.voteTextActive : null,
+                        ]}
+                      >
+                        不可信({notCredibleCount})
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <Text style={[styles.commentTitle, { color: colors.text }]}>留言</Text>
+
+                {/* 🎯 6. 評論列表卡片黑化連動 */}
+                <View
+                  onLayout={(event) => {
+                    commentListYRef.current = event.nativeEvent.layout.y;
+                  }}
+                  style={styles.commentList}
+                >
+                  {comments.map((comment) => (
+                    <CommentCard
+                      comment={comment}
+                      isOwnComment={Boolean(currentUser && comment.userId === currentUser.uid)}
+                      key={comment.id}
+                      onLayout={(event) => {
+                        if (pendingCommentIdRef.current !== comment.id) {
+                          return;
+                        }
+
+                        const commentY = commentListYRef.current + event.nativeEvent.layout.y;
+                        pendingCommentIdRef.current = null;
+                        scrollToComment(commentY);
+                      }}
+                      onDelete={handleDeleteComment}
+                      themeColors={colors}
+                      themeMode={themeMode}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
           </ScrollView>
 
           {/* 🎯 7. 底部黏性輸入框全域底層黑化連動 */}
-          <KeyboardStickyView offset={{ closed: 0, opened: inputBottomPadding }} style={[styles.inputBar, { paddingBottom: inputBottomPadding, backgroundColor: colors.background }]}>
-            <View style={[styles.inputCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
-              <Image source={accountIcon} style={styles.inputAvatarIcon} />
-              <TextInput
-                editable={!isSending}
-                maxLength={500}
-                onChangeText={setMessage}
-                onSubmitEditing={handleSendComment}
-                placeholder={currentUser ? "發表你的評論..." : "登入後才能發表評論"}
-                placeholderTextColor={themeMode === "dark" ? "#666666" : colors.special}
-                returnKeyType="send"
-                style={[styles.commentInput, { color: colors.text }]}
-                value={message}
-              />
-              <Pressable disabled={isSending || !message.trim()} onPress={handleSendComment} style={[styles.sendButton, isSending || !message.trim() ? styles.sendButtonDisabled : null]}>
-                <Image source={sendIcon} style={[styles.sendIcon, { tintColor: message.trim() ? colors.special : "#666666" }]} />
-              </Pressable>
-            </View>
-          </KeyboardStickyView>
+          {reportLoadState === "ready" ? (
+            <KeyboardStickyView offset={{ closed: 0, opened: inputBottomPadding }} style={[styles.inputBar, { paddingBottom: inputBottomPadding, backgroundColor: colors.background }]}>
+              <View style={[styles.inputCard, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : "#FFFFFF" }]}>
+                <Image source={accountIcon} style={styles.inputAvatarIcon} />
+                <TextInput
+                  editable={!isSending}
+                  maxLength={500}
+                  onChangeText={setMessage}
+                  onSubmitEditing={handleSendComment}
+                  placeholder={currentUser ? "發表你的評論..." : "登入後才能發表評論"}
+                  placeholderTextColor={themeMode === "dark" ? "#666666" : colors.special}
+                  returnKeyType="send"
+                  style={[styles.commentInput, { color: colors.text }]}
+                  value={message}
+                />
+                <Pressable disabled={isSending || !message.trim()} onPress={handleSendComment} style={[styles.sendButton, isSending || !message.trim() ? styles.sendButtonDisabled : null]}>
+                  <Image source={sendIcon} style={[styles.sendIcon, { tintColor: message.trim() ? colors.special : "#666666" }]} />
+                </Pressable>
+              </View>
+            </KeyboardStickyView>
+          ) : null}
 
-          <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
-          <CommentSuccessBanner animationKey={commentSuccessAnimationKey} bottomOffset={inputBottomPadding + 78} />
+          {reportLoadState === "ready" ? (
+            <>
+              <VoteSuccessToast animationKey={voteSuccessAnimationKey} />
+              <CommentSuccessBanner
+                animationKey={commentSuccessAnimationKey}
+                bottomOffset={inputBottomPadding + 78}
+                themeMode={themeMode}
+              />
+            </>
+          ) : null}
         </View>
       </TouchableWithoutFeedback>
     </View>
@@ -462,10 +723,28 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 24,
+  },
+  deletedReportState: {
+    flex: 1,
+    minHeight: 320,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+  deletedReportTitle: {
+    fontSize: fontSizes.title,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  deletedReportMessage: {
+    marginTop: 10,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "600",
+    lineHeight: 21,
+    textAlign: "center",
   },
   header: {
-    height: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -583,9 +862,9 @@ const styles = StyleSheet.create({
     columnGap: 10,
   },
   reportImageCard: {
-    width: 140,
-    height: 100,
-    borderRadius: 12,
+    width: 220,
+    height: 156,
+    borderRadius: 14,
     overflow: "hidden",
     elevation: 1,
   },
@@ -608,38 +887,42 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   voteHint: {
-    marginLeft: 6,
+    marginLeft: 8,
     color: "#888888",
     fontSize: fontSizes.footnote,
     fontWeight: "700",
+    lineHeight: 15,
   },
   voteRow: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: "row",
     justifyContent: "space-between",
   },
   voteButton: {
-    width: "48%",
-    height: 42,
+    width: "47%",
+    height: 34,
     borderRadius: 10,
+    backgroundColor: colors.surfaceMuted,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   voteButtonActive: {
-    backgroundColor: "#A6BAAE",
+    backgroundColor: colors.special,
   },
   voteText: {
     marginLeft: 8,
+    color: colors.black,
     fontSize: fontSizes.bodySmall,
     fontWeight: "800",
+    lineHeight: 18,
   },
   voteTextActive: {
-    color: "#FFFFFF",
+    color: colors.white,
   },
   voteIcon: {
-    width: 20,
-    height: 20,
+    width: 21,
+    height: 21,
     resizeMode: "contain",
   },
   commentTitle: {
@@ -652,10 +935,32 @@ const styles = StyleSheet.create({
   commentList: {
     rowGap: 12,
   },
+  commentSwipeContainer: {
+    position: "relative",
+    borderRadius: 14,
+    overflow: "hidden",
+    elevation: 1,
+  },
+  commentDeleteButton: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: commentDeleteActionWidth,
+    backgroundColor: colors.red,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  commentDeleteText: {
+    color: colors.white,
+    fontSize: fontSizes.bodySmall,
+    fontWeight: "900",
+  },
   commentCard: {
     borderRadius: 14,
+  },
+  commentCardContent: {
     padding: 14,
-    elevation: 1,
   },
   commentHeader: {
     flexDirection: "row",
@@ -759,11 +1064,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  commentSuccessIcon: {
-    width: 14,
-    height: 14,
-    resizeMode: "contain",
-    marginLeft: -1,
+  commentSuccessCheckMark: {
+    color: colors.white,
+    fontSize: fontSizes.bodyLarge,
+    fontWeight: "900",
+    lineHeight: 20,
   },
   commentSuccessText: {
     marginLeft: 10,

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Easing,
   Image,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -22,6 +22,7 @@ import { useTheme } from "./ThemeContext"; // 🎯 確保這行是單獨、乾�
 
 const centerIcon = require("../assets/location-crosshairs.png");
 const typeMarkerImage = require("../assets/TypeMarker.png");
+const appIcon = require("../assets/APPIcon.png");
 
 const fallbackCenter = {
   latitude: 24.988,
@@ -36,6 +37,7 @@ const cameraSettings = {
 
 const fallbackSheetHeight = 360;
 const tileSize = 256;
+const minimumLaunchScreenDuration = 1800;
 
 const locationOptions = {
   accuracy: Location.Accuracy.BestForNavigation,
@@ -48,6 +50,7 @@ const typeLabels = {
 const customTypePrefix = "custom:";
 
 let cachedUserCenter = null;
+let hasShownLaunchScreen = false;
 
 function isValidCoordinate(coordinate) {
   if (!coordinate) {
@@ -171,8 +174,15 @@ export default function Page() {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const { themeMode } = useTheme();
   const mapRef = useRef(null);
-  const locatingPulse = useRef(new Animated.Value(0)).current;
-  const locatingSpin = useRef(new Animated.Value(0)).current;
+  const shouldShowLaunchScreen = useRef(!hasShownLaunchScreen).current;
+  const launchProgress = useRef(
+    new Animated.Value(shouldShowLaunchScreen ? 0 : 1)
+  ).current;
+  const [minimumLaunchTimeElapsed, setMinimumLaunchTimeElapsed] =
+    useState(!shouldShowLaunchScreen);
+  const [isLaunchScreenVisible, setIsLaunchScreenVisible] = useState(
+    shouldShowLaunchScreen
+  );
   const [initialMapCenter, setInitialMapCenter] = useState(cachedUserCenter);
   const [userCenter, setUserCenter] = useState(cachedUserCenter);
   const [reports, setReports] = useState([]);
@@ -185,52 +195,69 @@ export default function Page() {
     ? reports.find((report) => report.id === selectedReportId)
     : null;
   const visibleReport = selectedReport || nearestReport;
-  const locatingSpinRotation = locatingSpin.interpolate({
+  const launchProgressWidth = launchProgress.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
+    outputRange: ["0%", "100%"],
   });
+
+  useEffect(() => {
+    if (!shouldShowLaunchScreen) {
+      return undefined;
+    }
+
+    hasShownLaunchScreen = true;
+
+    const progressAnimation = Animated.timing(launchProgress, {
+      toValue: 0.85,
+      duration: minimumLaunchScreenDuration,
+      useNativeDriver: false,
+    });
+    const launchScreenTimer = setTimeout(() => {
+      setMinimumLaunchTimeElapsed(true);
+    }, minimumLaunchScreenDuration);
+
+    progressAnimation.start();
+
+    return () => {
+      clearTimeout(launchScreenTimer);
+      progressAnimation.stop();
+    };
+  }, [launchProgress, shouldShowLaunchScreen]);
+
+  useEffect(() => {
+    if (
+      !initialMapCenter ||
+      !minimumLaunchTimeElapsed ||
+      !isLaunchScreenVisible
+    ) {
+      return undefined;
+    }
+
+    const completionAnimation = Animated.timing(launchProgress, {
+      toValue: 1,
+      duration: 250,
+      useNativeDriver: false,
+    });
+
+    completionAnimation.start(({ finished }) => {
+      if (finished) {
+        setIsLaunchScreenVisible(false);
+      }
+    });
+
+    return () => completionAnimation.stop();
+  }, [
+    initialMapCenter,
+    isLaunchScreenVisible,
+    launchProgress,
+    minimumLaunchTimeElapsed,
+  ]);
 
   useEffect(() => {
     if (dangerSheetVisible && visibleReport && sheetHeight) {
       focusReportOnMap(visibleReport);
     }
   }, [dangerSheetVisible, sheetHeight, visibleReport?.id]);
-
-  useEffect(() => {
-    if (initialMapCenter) {
-      locatingPulse.stopAnimation();
-      locatingSpin.stopAnimation();
-      return undefined;
-    }
-
-    locatingPulse.setValue(0);
-    locatingSpin.setValue(0);
-
-    const pulseAnimation = Animated.loop(
-      Animated.timing(locatingPulse, {
-        toValue: 1,
-        duration: 1600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      })
-    );
-    const spinAnimation = Animated.loop(
-      Animated.timing(locatingSpin, {
-        toValue: 1,
-        duration: 2200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-
-    pulseAnimation.start();
-    spinAnimation.start();
-
-    return () => {
-      pulseAnimation.stop();
-      spinAnimation.stop();
-    };
-  }, [initialMapCenter, locatingPulse, locatingSpin]);
 
   useEffect(() => {
     const reportsQuery = query(
@@ -460,52 +487,37 @@ export default function Page() {
             </Marker>
           ))}
         </MapView>
-      ) : (
+      ) : null}
+
+      <Modal
+        animationType="none"
+        navigationBarTranslucent
+        statusBarTranslucent
+        visible={isLaunchScreenVisible}
+      >
         <View
-          accessibilityLabel="正在尋找定位"
+          accessibilityLabel="NightWalk, Safer Routes, Safer Nights."
           accessibilityLiveRegion="polite"
           style={styles.locatingOverlay}
         >
-          <View style={styles.locatingAnimation}>
+          <Image source={appIcon} style={styles.locatingAppIcon} />
+          <Text style={styles.locatingTagline}>Safer Routes, Safer Nights.</Text>
+          <View
+            accessibilityLabel="定位進度"
+            accessibilityRole="progressbar"
+            style={styles.locatingProgressTrack}
+          >
             <Animated.View
               style={[
-                styles.locatingPulse,
-                {
-                  opacity: locatingPulse.interpolate({
-                    inputRange: [0, 0.72, 1],
-                    outputRange: [0.28, 0.12, 0],
-                  }),
-                  transform: [
-                    {
-                      scale: locatingPulse.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.72, 1.55],
-                      }),
-                    },
-                  ],
-                },
+                styles.locatingProgressFill,
+                { width: launchProgressWidth },
               ]}
             />
-            <View style={styles.locatingRadar}>
-              <Animated.View
-                style={[
-                  styles.locatingSweepWrapper,
-                  { transform: [{ rotate: locatingSpinRotation }] },
-                ]}
-              >
-                <View style={styles.locatingSweep} />
-              </Animated.View>
-              <View style={styles.locatingDot} />
-            </View>
           </View>
-          <Text style={styles.locatingTitle}>正在尋找定位</Text>
-          <Text style={styles.locatingDescription}>
-            正在確認你的目前位置，準備載入附近安全地圖
-          </Text>
         </View>
-      )}
+      </Modal>
 
-      {initialMapCenter ? (
+      {initialMapCenter && !isLaunchScreenVisible ? (
         <>
           <View
             style={[
@@ -566,69 +578,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 34,
   },
-  locatingAnimation: {
-    width: 138,
-    height: 138,
-    alignItems: "center",
-    justifyContent: "center",
+  locatingAppIcon: {
+    width: 144,
+    height: 144,
+    resizeMode: "contain",
   },
-  locatingPulse: {
-    position: "absolute",
-    width: 138,
-    height: 138,
-    borderRadius: 69,
-    borderWidth: 2,
-    borderColor: colors.special,
-    backgroundColor: colors.special,
-  },
-  locatingRadar: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 1,
-    borderColor: colors.specialSoft,
-    backgroundColor: "rgba(166, 186, 174, 0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  locatingSweepWrapper: {
-    position: "absolute",
-    width: 92,
-    height: 92,
-    alignItems: "center",
-  },
-  locatingSweep: {
-    width: 2,
-    height: 46,
-    borderRadius: 1,
-    backgroundColor: colors.white,
-    opacity: 0.82,
-  },
-  locatingDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.white,
-    borderWidth: 5,
-    borderColor: colors.special,
-  },
-  locatingTitle: {
-    marginTop: 24,
+  locatingTagline: {
+    marginTop: 20,
     color: colors.black,
-    fontSize: fontSizes.titleLarge,
-    fontWeight: "900",
-    lineHeight: 29,
-    textAlign: "center",
-  },
-  locatingDescription: {
-    maxWidth: 270,
-    marginTop: 10,
-    color: colors.black,
-    fontSize: fontSizes.bodySmall,
+    fontSize: fontSizes.bodyLarge,
     fontWeight: "700",
-    lineHeight: 21,
     textAlign: "center",
+  },
+  locatingProgressTrack: {
+    width: 180,
+    height: 10,
+    marginTop: 24,
+    overflow: "hidden",
+    borderRadius: 10,
+    backgroundColor: colors.specialSoft,
+  },
+  locatingProgressFill: {
+    height: "100%",
+    borderRadius: 3,
+    backgroundColor: colors.special,
   },
   reportMarker: {
     width: 64,

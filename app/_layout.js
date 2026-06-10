@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar, StyleSheet, View } from "react-native";
 import { KeyboardProvider } from "react-native-keyboard-controller";
@@ -9,8 +10,31 @@ import {
 
 import BottomNavigation from "./components/BottomNavigation";
 import { ThemeProvider, useTheme } from "./ThemeContext"; // 🎯 1. 引入你的全域主題管家（請根據真實路徑微調）
+import { authReady } from "../firebase";
 
 export default function RootLayout() {
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    authReady
+      .catch(() => null)
+      .finally(() => {
+        if (isMounted) {
+          setIsAuthReady(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (!isAuthReady) {
+    return null;
+  }
+
   return (
     // 🎯 2. ThemeProvider 必須放在最頂層，包住所有 Provider
     <ThemeProvider>
