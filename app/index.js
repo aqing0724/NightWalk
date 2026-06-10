@@ -582,11 +582,23 @@ export default function Page() {
             onPress={handleRecenterToUser}
             style={({ pressed }) => [
               styles.recenterButton,
-              { bottom: dangerCardBottom + 75 + 28 },
+              {
+                bottom: dangerCardBottom + 75 + 28,
+                backgroundColor:
+                  themeMode === "dark"
+                    ? themeColors.handle
+                    : themeColors.white,
+              },
               pressed ? styles.recenterButtonPressed : null,
             ]}
           >
-            <Image source={centerIcon} style={styles.recenterIcon} />
+            <Image
+              source={centerIcon}
+              style={[
+                styles.recenterIcon,
+                { tintColor: themeColors.special },
+              ]}
+            />
           </Pressable>
         </>
       ) : null}
@@ -682,7 +694,6 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
   },

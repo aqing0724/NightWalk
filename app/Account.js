@@ -6,6 +6,8 @@ const mailIcon = require("../assets/Mail2.png");
 const compassIcon = require("../assets/Compass.png");
 const typeIcon = require("../assets/Type.png");
 const clockIcon = require("../assets/Clock.png");
+const thumbsUpIcon = require("../assets/ThumbsUp.png");
+const thumbsUpDarkIcon = require("../assets/ThumbUp-on.png");
 
 import { useTheme } from "./ThemeContext"; // 🎯 1. 引入全域主題鉤子
 
@@ -29,9 +31,10 @@ import { onAuthStateChanged, signOut, deleteUser } from "firebase/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // 2. 引入 Firestore 相關語法
-import { collection, query, where, orderBy, onSnapshot, collectionGroup, deleteDoc, doc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, collectionGroup, deleteDoc, doc, getDoc } from "firebase/firestore";
 
 import { auth, db } from "../firebase"; // 3. 確保引入了 db (Firestore 實例)
+import { voteOnReport } from "../services/reportVoting";
 import { colors, fontSizes } from "./constants/theme";
 
 const historyDeleteActionWidth = 76;
@@ -56,7 +59,22 @@ function formatDangerType(type) {
   return `#${label || "未分類"}`;
 }
 
-function SwipeToDelete({ children, onDelete, surfaceColor }) {
+function formatHistoryDate(createdAt) {
+  const date = typeof createdAt?.toDate === "function"
+    ? createdAt.toDate()
+    : createdAt?.seconds
+      ? new Date(createdAt.seconds * 1000)
+      : null;
+
+  if (!date || Number.isNaN(date.getTime())) return "近期";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}/${month}/${day}`;
+}
+
+function SwipeToDelete({ children, onDelete, surfaceColor, actionLabel = "刪除" }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const isDeleteActionOpenRef = useRef(false);
   const dragStartXRef = useRef(0);
@@ -73,9 +91,16 @@ function SwipeToDelete({ children, onDelete, surfaceColor }) {
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        gestureState.dx < -12 &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        const isHorizontalSwipe =
+          Math.abs(gestureState.dx) > 12 &&
+          Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.5;
+
+        return (
+          isHorizontalSwipe &&
+          (gestureState.dx < 0 || isDeleteActionOpenRef.current)
+        );
+      },
       onPanResponderGrant: () => {
         dragStartXRef.current = isDeleteActionOpenRef.current ? -historyDeleteActionWidth : 0;
       },
@@ -102,12 +127,12 @@ function SwipeToDelete({ children, onDelete, surfaceColor }) {
   return (
     <View style={[styles.historySwipeContainer, { backgroundColor: surfaceColor }]}>
       <Pressable
-        accessibilityLabel="刪除紀錄"
+        accessibilityLabel={`${actionLabel}紀錄`}
         accessibilityRole="button"
         onPress={onDelete}
         style={styles.historyDeleteButton}
       >
-        <Text style={styles.historyDeleteText}>刪除</Text>
+        <Text style={styles.historyDeleteText}>{actionLabel}</Text>
       </Pressable>
       <Animated.View
         {...panResponder.panHandlers}
@@ -156,11 +181,15 @@ export default function AccountPage() {
 
     let reportsData = [];
     let commentsData = [];
+    let likedReportsData = [];
     let reportsLoaded = false;
     let commentsLoaded = false;
+    let likedReportsLoaded = false;
+    let likedReportsRequestId = 0;
+    let isActive = true;
 
     const finishRefreshIfReady = () => {
-      if (reportsLoaded && commentsLoaded) {
+      if (reportsLoaded && commentsLoaded && likedReportsLoaded) {
         setIsRefreshing(false);
       }
     };
@@ -170,7 +199,8 @@ export default function AccountPage() {
       // 把兩邊撈到的資料揉成一個陣列，並加上 type 標記方便 renderItem 識別
       const combined = [
         ...reportsData.map(item => ({ ...item, listType: "report" })),
-        ...commentsData.map(item => ({ ...item, listType: "comment" }))
+        ...commentsData.map(item => ({ ...item, listType: "comment" })),
+        ...likedReportsData.map(item => ({ ...item, listType: "liked" }))
       ];
 
       // 依據時間 (createdAt) 從新到舊排序
@@ -234,10 +264,53 @@ export default function AccountPage() {
       console.error("讀取評論失敗，可能需要建立 Index 索引:", error);
     });
 
-    // 組件卸載時，把兩個對講機都關掉
+    // ─── 監聽 3：讀取所有回報，再檢查目前使用者按過「可信」的項目 ───
+    const unsubscribeLikedReports = onSnapshot(collection(db, "reports"), async (snapshot) => {
+      const requestId = ++likedReportsRequestId;
+
+      try {
+        const likedReports = await Promise.all(
+          snapshot.docs.map(async (reportSnapshot) => {
+            const voteSnapshot = await getDoc(
+              doc(db, "reports", reportSnapshot.id, "votes", currentUser.uid)
+            );
+
+            if (!voteSnapshot.exists() || voteSnapshot.data().vote !== "credible") {
+              return null;
+            }
+
+            return {
+              id: reportSnapshot.id,
+              reportId: reportSnapshot.id,
+              ...reportSnapshot.data(),
+              createdAt: voteSnapshot.data().updatedAt || reportSnapshot.data().createdAt,
+            };
+          })
+        );
+
+        if (!isActive || requestId !== likedReportsRequestId) return;
+        likedReportsData = likedReports.filter(Boolean);
+        likedReportsLoaded = true;
+        updateHistoryList();
+        finishRefreshIfReady();
+      } catch (error) {
+        if (!isActive || requestId !== likedReportsRequestId) return;
+        likedReportsLoaded = true;
+        finishRefreshIfReady();
+        console.error("讀取按讚回報失敗:", error);
+      }
+    }, (error) => {
+      likedReportsLoaded = true;
+      finishRefreshIfReady();
+      console.error("監聽按讚回報失敗:", error);
+    });
+
+    // 組件卸載時，把三個即時監聽都關掉
     return () => {
+      isActive = false;
       unsubscribeReports();
       unsubscribeComments();
+      unsubscribeLikedReports();
     };
   }, [currentUser, refreshCount]);
 
@@ -258,28 +331,37 @@ export default function AccountPage() {
 
   function handleDeleteHistoryItem(item) {
     const isReport = item.listType === "report";
-    const title = isReport ? "刪除回報" : "刪除留言";
+    const isLiked = item.listType === "liked";
+    const title = isReport ? "刪除回報" : isLiked ? "刪除按讚" : "刪除留言";
     const message = isReport
       ? "確定要刪除這筆回報嗎？刪除後將無法復原。"
-      : "確定要刪除這則留言嗎？刪除後將無法復原。";
+      : isLiked
+        ? "確定刪除按讚"
+        : "確定要刪除這則留言嗎？刪除後將無法復原。";
 
     Alert.alert(title, message, [
       { text: "取消", style: "cancel" },
       {
-        text: "確定刪除",
+        text: isLiked ? "刪除按讚" : "確定刪除",
         style: "destructive",
         onPress: async () => {
           try {
             if (isReport) {
               await deleteDoc(doc(db, "reports", item.id));
+            } else if (isLiked && item.reportId) {
+              await voteOnReport(item.reportId, "credible");
             } else if (item.reportId) {
               await deleteDoc(doc(db, "reports", item.reportId, "comments", item.id));
             } else {
               Alert.alert("刪除失敗", "找不到這則留言所屬的回報。");
             }
           } catch (error) {
-            console.error(`刪除${isReport ? "回報" : "留言"}失敗:`, error);
-            Alert.alert("刪除失敗", `目前無法刪除${isReport ? "回報" : "留言"}，請稍後再試。`);
+            const actionLabel = isReport ? "回報" : isLiked ? "按讚" : "留言";
+            console.error(`${isLiked ? "取消" : "刪除"}${actionLabel}失敗:`, error);
+            Alert.alert(
+              isLiked ? "取消按讚失敗" : "刪除失敗",
+              `目前無法${isLiked ? "取消" : "刪除"}${actionLabel}，請稍後再試。`
+            );
           }
         },
       },
@@ -288,12 +370,15 @@ export default function AccountPage() {
 
   const renderItem = ({ item }) => {
     const isReport = item.listType === "report";
+    const isLiked = item.listType === "liked";
+    const isReportCard = isReport || isLiked;
     const surfaceColor = themeMode === "dark" ? "#1E1E1E" : "#FFFFFF";
 
     return (
       <SwipeToDelete
         onDelete={() => handleDeleteHistoryItem(item)}
         surfaceColor={surfaceColor}
+        actionLabel="刪除"
       >
         <Pressable
           // 🎯 修正：卡片背景色跟隨 colors.surfaceMuted（暗色時變深灰），消除原本寫死的 #FFFFFF
@@ -310,20 +395,25 @@ export default function AccountPage() {
 
           <View style={styles.cardLeft}>
             <Image
-              source={isReport ? mailIcon : messageSquare}
+              source={
+                isLiked
+                  ? (themeMode === "dark" ? thumbsUpDarkIcon : thumbsUpIcon)
+                  : isReport
+                    ? mailIcon
+                    : messageSquare
+              }
               style={[
                 styles.cardItemIcon,
-                // 🎯 修正：圖示 tintColor 改用全域的 colors.text
-                { tintColor: colors.text }
+                !isLiked && { tintColor: colors.text }
               ]}
             />
             <Text style={[styles.cardTypeText, { color: themeMode === "dark" ? "#AAAAAA" : "#777777", marginTop: 4 }]}>
-              {isReport ? "回報" : "評論"}
+              {isReport ? "回報" : isLiked ? "按讚" : "評論"}
             </Text>
           </View>
 
           <View style={styles.cardMiddle}>
-            {isReport ? (
+            {isReportCard ? (
               <>
                 {/* 🎯 修正：標題文字顏色跟隨 colors.text */}
                 <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
@@ -343,9 +433,11 @@ export default function AccountPage() {
               </>
             ) : (
               <>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>{item.locationText || "未知名稱"}</Text>
-                <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]} numberOfLines={1}>
+                <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
                   {item.message || "空白內容"}
+                </Text>
+                <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]} numberOfLines={1}>
+                  {item.locationText || "未知名稱"}
                 </Text>
               </>
             )}
@@ -360,7 +452,7 @@ export default function AccountPage() {
                 ]}
               />
               <Text style={[styles.cardSubText, { color: themeMode === "dark" ? "#AAAAAA" : "#888888" }]}>
-                {item.createdAt?.seconds ? new Date(item.createdAt.seconds * 1000).toLocaleDateString() : "近期"}
+                {formatHistoryDate(item.createdAt)}
               </Text>
             </View>
           </View>

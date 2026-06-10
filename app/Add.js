@@ -5,9 +5,7 @@ import {
   Animated,
   Easing,
   Image,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -25,6 +23,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { addDoc, collection, doc, onSnapshot, orderBy, query, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref } from "firebase/storage";
 import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { auth, db, storage } from "../firebase";
@@ -32,7 +31,7 @@ import { fontSizes } from "./constants/theme";
 import { useTheme } from "./ThemeContext"; // 🎯 1. 物理引入全域主題管家
 
 const imageIcon = require("../assets/image.png");
-const mapPinIcon = require("../assets/marker.png");
+const mapPinIcon = require("../assets/TypeMarker.png");
 
 const reportLocation = { latitude: 24.988, longitude: 121.576 };
 const reportRegion = { ...reportLocation, latitudeDelta: 0.0038, longitudeDelta: 0.0038 };
@@ -126,9 +125,6 @@ export default function AddPage() {
   const insets = useSafeAreaInsets();
   const { themeMode, colors } = useTheme(); // 🎯 2. 解構變色變數
   const mapRef = useRef(null);
-  const scrollViewRef = useRef(null);
-  const customTypeInputYRef = useRef(0);
-  const descriptionInputYRef = useRef(0);
   const hasSearchedLocationRef = useRef(false);
   const hasEditedLocationTextRef = useRef(false);
   const isSearchingLocationRef = useRef(false);
@@ -287,8 +283,6 @@ export default function AddPage() {
   }
 
   function handleAddCustomType() { handleCreateCustomType(customTypeText); }
-  function handleCustomTypeInputFocus() { setTimeout(() => { scrollViewRef.current?.scrollTo({ y: Math.max(customTypeInputYRef.current - 90, 0), animated: true }); }, 80); }
-  function handleDescriptionInputFocus() { setTimeout(() => { scrollViewRef.current?.scrollTo({ y: Math.max(descriptionInputYRef.current - 160, 0), animated: true }); }, 80); }
   function addSelectedImages(images) { setSelectedImages((currentImages) => [...currentImages, ...images.slice(0, maxPhotoCount - currentImages.length)]); }
   async function pickImageFromCamera() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -347,7 +341,7 @@ export default function AddPage() {
   const selectedDangerTypeOptions = selectedTypes.map((typeId) => ({ id: typeId, label: getDangerTypeLabel(typeId, dangerTypeSuggestions) }));
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <StatusBar barStyle={themeMode === "dark" ? "light-content" : "dark-content"} backgroundColor={colors.background} />
 
       {/* 🎯 3. Header 黑化 */}
@@ -355,10 +349,11 @@ export default function AddPage() {
         <Text style={[styles.title, { color: colors.text }]}>回報危險地點</Text>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
+      <KeyboardAwareScrollView
         alwaysBounceVertical
+        bottomOffset={20}
         contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top, 18) + 62, paddingBottom: Math.max(insets.bottom, 26) + 128 }]}
+        disableScrollOnKeyboardHide
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
@@ -387,7 +382,7 @@ export default function AddPage() {
                 onRegionChangeComplete={(region) => { setMapRegion(region); setSelectedLocation({ latitude: region.latitude, longitude: region.longitude }); }}
               />
               <View pointerEvents="none" style={styles.centerMarker}>
-                <Image source={mapPinIcon} style={[styles.centerMarkerIcon, { tintColor: colors.text }]} />
+                <Image source={mapPinIcon} style={styles.centerMarkerIcon} />
               </View>
             </>
           )}
@@ -422,12 +417,7 @@ export default function AddPage() {
           </View>
         ) : null}
         
-        <View
-          style={[styles.customTypeBox, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}
-          onLayout={(event) => {
-            customTypeInputYRef.current = event.nativeEvent.layout.y;
-          }}
-        >
+        <View style={[styles.customTypeBox, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}>
           <TextInput
             accessibilityLabel="新增危險標籤"
             autoCorrect={false}
@@ -439,7 +429,6 @@ export default function AddPage() {
             style={[styles.customTypeInput, { color: colors.text }]}
             value={customTypeText}
             onChangeText={setCustomTypeText}
-            onFocus={handleCustomTypeInputFocus}
             onSubmitEditing={handleAddCustomType}
           />
         </View>
@@ -471,7 +460,6 @@ export default function AddPage() {
         <Text style={[styles.sectionTitle, { color: colors.text }]}>3.情況說明</Text>
         <TextInput
           multiline
-          onFocus={handleDescriptionInputFocus}
           placeholder="請簡單描述您看到的情況..."
           placeholderTextColor="#666666"
           style={[styles.largeInput, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white, color: colors.text }]}
@@ -526,7 +514,7 @@ export default function AddPage() {
         <Pressable onPress={handleSubmitReport} style={styles.submitButton}>
           <Text style={styles.submitButtonText}>送出回報</Text>
         </Pressable>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <Modal
         animationType="fade"
@@ -594,7 +582,7 @@ export default function AddPage() {
           )}
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 

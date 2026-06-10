@@ -107,7 +107,15 @@ export default function BottomNavigation() {
         style={styles.navFrame}
       >
         {/* 🎯 3. 物理變色：在 View 上直接用陣列樣式改寫 navBar 底色，白天純白，黑夜切換為你指定的質感炭灰 */}
-        <View style={[styles.navBar, { backgroundColor: themeMode === "dark" ? "#2A2A2A" : colors.white }]}>
+        <View
+          style={[
+            styles.navBar,
+            {
+              backgroundColor:
+                themeMode === "dark" ? globalColors.handle : colors.white,
+            },
+          ]}
+        >
           {barWidth ? (
             <Animated.View
               pointerEvents="none"

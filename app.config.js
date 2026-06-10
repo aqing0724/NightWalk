@@ -1,6 +1,6 @@
 export default {
   expo: {
-    scheme: "acme",
+    scheme: "nightwalk",
     plugins: [
       "expo-router",
       [
@@ -23,8 +23,22 @@ export default {
     ],
     name: "NightWalk",
     slug: "nightwalk",
-    "jsEngine": "jsc",
-    "version": "1.0.0",
+    jsEngine: "jsc",
+    version: "1.0.0",
+    updates: {
+      url: "https://u.expo.dev/63ca09c2-3f46-4210-881d-9905f91a16bf",
+    },
+
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+
+    extra: {
+      eas: {
+        projectId: "63ca09c2-3f46-4210-881d-9905f91a16bf",
+      },
+    },
+
     androidNavigationBar: {
       backgroundColor: "#F7F7F7",
       barStyle: "dark-content",
@@ -43,4 +57,4 @@ export default {
       },
     },
   },
-};
+}

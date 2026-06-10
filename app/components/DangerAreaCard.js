@@ -19,7 +19,7 @@ function formatDistance(distanceMeters) {
 }
 
 export default function DangerAreaCard({ report, onPress }) {
-  const { themeMode } = useTheme();
+  const { themeMode, colors: themeColors } = useTheme();
   const subtitle = report
     ? report.locationText ||
       report.selectedAddress ||
@@ -39,7 +39,15 @@ export default function DangerAreaCard({ report, onPress }) {
         pressed && report ? styles.cardPressed : null,
       ]}
     >
-      <View style={[styles.card, { backgroundColor: themeMode === "dark" ? "#1E1E1E" : colors.white }]}>
+      <View
+        style={[
+          styles.card,
+          {
+            backgroundColor:
+              themeMode === "dark" ? themeColors.handle : colors.white,
+          },
+        ]}
+      >
         <View style={styles.iconBubble}>
           <Image source={warningIcon} style={styles.warningIcon} />
         </View>
